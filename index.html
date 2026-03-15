@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>捷運司機員換班助手</title>
+    <title>捷運司機員換班助手 (v2.3)</title>
+    <!-- Tailwind CSS 與 PDF.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script>
@@ -21,22 +22,26 @@
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased pb-28">
 
+    <!-- 載入遮罩 -->
     <div id="loadingOverlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="w-12 h-12 border-4 border-blue-100 border-t-[#1b759a] rounded-full animate-spin mb-4"></div>
         <p class="text-[#1b759a] font-bold animate-pulse">連線至雲端系統...</p>
     </div>
 
+    <!-- 全局 Toast 提示框 -->
     <div id="toastMsg" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[110] hidden flex-col items-center w-11/12 max-w-sm pointer-events-none">
         <div id="toastContent" class="bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-center w-full">提示訊息</div>
     </div>
 
+    <!-- ========== 視圖 1：班表查詢與駐列 ========== -->
     <div id="view-schedule" class="block">
         
-        <div class="bg-white shadow-sm sticky top-0 z-20">
+        <!-- 頂部區塊 (檔案管理後台) -->
+        <div class="bg-white shadow-sm sticky top-0 z-50">
             <div class="p-3 flex justify-between items-center bg-[#1b759a] text-white cursor-pointer active:brightness-110 transition" onclick="window.togglePanel()">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班助手</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班助手 (v2.3)</h1>
                 </div>
                 <div class="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg">
                     <span id="panelToggleText" class="text-[11px] font-bold">展開檔案管理</span>
@@ -44,12 +49,13 @@
                 </div>
             </div>
 
-            <div id="controlPanelBody" class="px-4 bg-blue-50 overflow-hidden max-h-0 opacity-0 transition-all-300">
-                <div class="py-4 space-y-4">
+            <!-- 檔案管理摺疊區 (純後台：不連動下方畫面) -->
+            <div id="controlPanelBody" class="bg-blue-50 transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
+                <div class="px-4 py-4 space-y-4">
                     <div>
-                        <label class="block text-xs font-bold text-[#1b759a] mb-2 uppercase">☁️ 雲端快速選取已存班表</label>
+                        <label class="block text-xs font-bold text-[#1b759a] mb-2 uppercase">☁️ 雲端班表管理 (刪除用)</label>
                         <div class="flex gap-2">
-                            <select id="cloudSchedules" onchange="window.loadCloudSchedule()" class="flex-1 border border-blue-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-white font-bold text-gray-700">
+                            <select id="cloudSchedules" class="flex-1 border border-blue-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-white font-bold text-gray-700">
                                 <option value="">載入中...</option>
                             </select>
                             <button onclick="window.deleteCloudSchedule()" class="bg-white text-red-500 border border-red-100 px-4 py-2.5 rounded-xl hover:bg-red-50 active:scale-95 transition flex items-center justify-center shadow-sm">
@@ -58,132 +64,205 @@
                         </div>
                     </div>
                     <div class="border-t border-blue-200 pt-3">
-                        <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">📄 上傳新班表 PDF (自動更新雲端底層)</label>
-                        <input type="file" id="pdfInput" accept="application/pdf" class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[11px] file:font-bold file:bg-[#1b759a] file:text-white hover:file:bg-blue-700 outline-none cursor-pointer">
+                        <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase">📄 上傳新班表 PDF (自動更新雲端底層)</label>
+                        <div class="flex flex-col gap-2">
+                            <label class="block w-full text-center border-2 border-dashed border-blue-300 bg-white hover:bg-blue-50 text-[#1b759a] font-bold py-3 rounded-xl cursor-pointer transition px-3">
+                                <span id="pdfFileNameDisplay" class="text-xs block truncate w-full">1. 點擊此處選擇 PDF 檔案</span>
+                                <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="window.handleFileSelect(event)">
+                            </label>
+                            <button id="pdfUploadBtn" onclick="window.startPdfUpload()" disabled class="w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm">2. 確認上傳並解析</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 💡 前台操作區：三大操作區塊 (加上 relative z-40 解決圖層遮擋問題) -->
+        <div class="bg-white border-b border-gray-200 relative z-40 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <!-- 區塊 1：選擇班表 -->
+            <div class="border-b border-gray-100 bg-white">
+                <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-select')">
+                    <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>📅</span> 選擇班表</label>
+                    <svg id="icon-acc-select" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <!-- 預設展開 -->
+                <div id="acc-select" class="transition-all duration-300" style="max-height: 800px; opacity: 1; overflow: visible;">
+                    <div class="p-4">
+                        <select id="mainScheduleSelect" onchange="window.loadMainSchedule()" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 shadow-inner text-center">
+                            <option value="">載入中...</option>
+                        </select>
                     </div>
                 </div>
             </div>
 
-            <div class="p-3 bg-white border-b border-gray-200 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <label class="block text-sm font-bold text-gray-700 mb-2">🔍 查詢個人班表 (加入駐列)</label>
-                <div class="flex space-x-2">
-                    <input type="text" id="empId" placeholder="輸入差號或姓名" onkeypress="if(event.key==='Enter') window.searchSchedule()" class="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#1b759a] outline-none text-sm shadow-inner font-bold bg-gray-50 text-center">
-                    <button onclick="window.searchSchedule()" class="bg-[#1b759a] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition shadow-md text-sm whitespace-nowrap">搜尋</button>
+            <!-- 需要選擇班表後才顯示的容器 -->
+            <div id="actionSectionsContainer" class="hidden">
+                <!-- 區塊 2：查詢個人班表 -->
+                <div class="border-b border-gray-100 bg-white">
+                    <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-search')">
+                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🔍</span> 查詢個人班表 <span class="text-xs text-gray-400 font-bold">(加入駐列)</span></label>
+                        <svg id="icon-acc-search" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <!-- 預設收合 -->
+                    <div id="acc-search" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
+                        <div class="p-4">
+                            <div class="flex space-x-2">
+                                <input type="text" id="empId" placeholder="輸入差號或姓名" onkeypress="if(event.key==='Enter') window.searchSchedule()" class="flex-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#1b759a] outline-none text-sm shadow-inner font-bold bg-gray-50 text-center">
+                                <button onclick="window.searchSchedule()" class="bg-[#1b759a] text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition shadow-md text-sm whitespace-nowrap">搜尋</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 區塊 3：找任務卡 -->
+                <div class="bg-white">
+                    <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-find')">
+                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🎯</span> 找任務卡 <span class="text-xs text-gray-400 font-bold">(尋找換班對象)</span></label>
+                        <svg id="icon-acc-find" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <!-- 預設收合 -->
+                    <div id="acc-find" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
+                        <div class="p-4">
+                            <div class="flex flex-row items-center justify-between gap-2 w-full">
+                                <select id="queryDate" class="border border-gray-300 rounded-xl px-2 py-3 w-[110px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
+                                
+                                <div class="relative flex-1 min-w-0">
+                                    <input type="text" id="queryShift" placeholder="輸入班別" autocomplete="off" onfocus="window.showCustomDropdown()" oninput="window.filterCustomDropdown()" class="w-full border border-gray-300 rounded-xl px-3 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center">
+                                    <!-- 確保選單擁有極高 Z 軸 -->
+                                    <div id="customShiftDropdown" class="absolute top-full left-0 w-full bg-white border border-gray-200 shadow-2xl rounded-xl mt-1 max-h-48 overflow-y-auto z-[100] hidden divide-y divide-gray-100"></div>
+                                </div>
+                                <button onclick="window.executeShiftQuery()" class="bg-gray-800 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-black active:scale-95 transition text-sm font-bold shadow-md">找人</button>
+                            </div>
+                            <div id="queryResults" class="flex flex-col gap-2 mt-3 empty:hidden"></div>
+                            <div id="pinnedTagsContainer" class="pt-3 mt-3 border-t border-gray-100 hidden">
+                                <p class="text-[10px] text-gray-400 mb-2 font-bold uppercase tracking-widest">📌 已釘選</p>
+                                <div id="pinnedTags" class="flex flex-col gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div id="shiftQueryContainer" class="max-w-md mx-auto mt-4 bg-white hidden shadow-sm border-y border-gray-200 p-4 mb-4 relative">
-            <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><span>🎯</span> 找任務卡 (尋找可換班對象)</h3>
-            <div class="flex flex-row items-center justify-between gap-2 mb-3 w-full">
-                <select id="queryDate" class="border border-gray-300 rounded-xl px-2 py-2.5 w-[110px] shrink-0 bg-white outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-sm"></select>
-                
-                <div class="relative flex-1 min-w-0">
-                    <input type="text" id="queryShift" placeholder="輸入班別" autocomplete="off" onfocus="window.showCustomDropdown()" oninput="window.filterCustomDropdown()" class="w-full border border-gray-300 rounded-xl px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-sm text-center">
-                    <div id="customShiftDropdown" class="absolute top-full left-0 w-full bg-white border border-gray-200 shadow-xl rounded-xl mt-1 max-h-48 overflow-y-auto z-50 hidden divide-y divide-gray-100"></div>
-                </div>
-
-                <button onclick="window.executeShiftQuery()" class="bg-gray-800 text-white w-[75px] shrink-0 py-2.5 rounded-xl hover:bg-black active:scale-95 transition text-sm font-bold shadow-md">找人</button>
-            </div>
-            <div id="queryResults" class="flex flex-col gap-2 empty:hidden"></div>
-            <div id="pinnedTagsContainer" class="pt-3 mt-3 border-t border-gray-100 hidden">
-                <p class="text-[10px] text-gray-400 mb-2 font-bold uppercase tracking-widest">📌 已釘選</p>
-                <div id="pinnedTags" class="flex flex-col gap-2"></div>
-            </div>
-        </div>
-
-        <div id="multiScheduleContainer" class="max-w-md mx-auto mt-4 space-y-4 px-3 pb-6"></div>
+        <!-- 多人班表駐列區 -->
+        <div id="multiScheduleContainer" class="max-w-md mx-auto mt-4 space-y-4 px-3 pb-6 relative z-10"></div>
     </div>
 
-    <div id="view-export" class="hidden max-w-md mx-auto px-4 mt-4 pb-20">
-        <div class="bg-red-50 border border-red-200 rounded-xl p-3 mb-5 flex items-start gap-3 shadow-sm">
-            <span class="text-2xl">⚠️</span>
-            <p class="text-xs text-red-600 font-bold leading-relaxed"><span class="text-sm">免責聲明</span><br>系統匯出可能有錯，務必與正式班表再次確認。<strong class="text-red-700">上錯班系統恕不負責。</strong></p>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 mb-5 overflow-hidden">
-            <div class="p-4 flex justify-between items-center bg-gray-50 cursor-pointer active:bg-gray-100 transition" onclick="window.toggleExportHelp()">
-                <h3 class="font-bold text-gray-700 flex items-center gap-2"><span>📖</span> 如何安裝至行事曆？</h3>
-                <svg id="exportHelpIcon" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-            <div id="exportHelpBody" class="px-4 overflow-hidden max-h-0 opacity-0 transition-all-300 bg-white">
-                <div class="py-4 space-y-4 text-sm text-gray-600 leading-relaxed font-medium">
-                    <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶</span></p><p>點擊下方「匯出檔案」後，手機會跳出下載提示。下載完成後點開它，系統會問<span class="text-blue-600 font-bold">「要加入行事曆嗎？」</span>，點擊<span class="font-bold text-gray-800">「加入」</span>就瞬間完成囉！</p></div>
-                    <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊「匯出檔案」下載後，直接點開該檔案，<span class="text-blue-600 font-bold">Google 日曆</span>就會自動啟動並問你要不要匯入，按下<span class="font-bold text-gray-800">「確認」</span>即可！</p></div>
-                    <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs"><p class="font-bold text-yellow-800 mb-1">💡 溫馨小建議</p><p class="text-yellow-700">怕行事曆跟私事混在一起太亂嗎？建議先在手機日曆裡新增一個叫做<span class="font-bold">「捷運班表」</span>的分類，匯入時選它。以後不想看，只要取消打勾畫面就乾淨囉！</p></div>
-                </div>
+    <!-- ========== 視圖 2：班表匯出 ========== -->
+    <div id="view-export" class="hidden">
+        <div class="bg-[#1b759a] shadow-sm sticky top-0 z-20">
+            <div class="p-3 flex items-center gap-2 text-white cursor-default">
+                <span class="text-xl">📤</span>
+                <h1 class="text-lg font-black tracking-wide">匯出行事曆</h1>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-5">
-            <h3 class="text-sm font-black text-[#1b759a] mb-3">步驟 1：選擇要匯出的月份</h3>
-            <select id="exportCloudSchedules" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 mb-6">
-                <option value="">請先至「班表作業」上傳班表</option>
-            </select>
-
-            <h3 class="text-sm font-black text-[#1b759a] mb-3">步驟 2：查詢名單</h3>
-            <div class="flex gap-2">
-                <input type="text" id="exportEmpId" placeholder="輸入差號或姓名" onkeypress="if(event.key==='Enter') window.searchExportSchedule()" class="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold bg-gray-50 text-center">
-                <button onclick="window.searchExportSchedule()" class="bg-[#1b759a] text-white px-5 rounded-xl font-bold shadow-md hover:bg-blue-700 active:scale-95 transition">查詢</button>
-            </div>
-        </div>
-
-        <div id="exportResultArea" class="hidden">
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-5">
-                <h3 class="text-sm font-black text-green-600 mb-3 border-b border-gray-100 pb-2">步驟 3：確認班表 (唯讀預覽)</h3>
-                <div class="flex justify-between items-center mb-2 px-1">
-                    <h2 id="exportMonthYearHeader" class="text-gray-700 text-sm font-black">----年 --月</h2>
-                    <div id="exportEmpInfoHeader" class="text-xs font-bold text-white bg-green-600 px-3 py-1 rounded-md"></div>
-                </div>
-                <div class="grid grid-cols-7 text-center border-b border-gray-100 py-1.5 bg-gray-50 rounded-t-lg">
-                    <div class="text-[9px] font-bold text-gray-400">SUN</div><div class="text-[9px] font-bold text-gray-400">MON</div><div class="text-[9px] font-bold text-gray-400">TUE</div><div class="text-[9px] font-bold text-gray-400">WED</div><div class="text-[9px] font-bold text-[#1b759a]">THU</div><div class="text-[9px] font-bold text-gray-400">FRI</div><div class="text-[9px] font-bold text-gray-400">SAT</div>
-                </div>
-                <div id="exportCalendarGrid" class="grid grid-cols-7 bg-gray-200 gap-px rounded-b-lg overflow-hidden border border-gray-200"></div>
+        <div class="max-w-md mx-auto px-4 mt-5 pb-20">
+            <div class="bg-red-50 border border-red-200 rounded-xl p-3 mb-5 flex items-start gap-3 shadow-sm">
+                <span class="text-2xl">⚠️</span>
+                <p class="text-xs text-red-600 font-bold leading-relaxed"><span class="text-sm">免責聲明</span><br>系統匯出可能有錯，務必與正式班表再次確認。<strong class="text-red-700">上錯班系統恕不負責。</strong></p>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-md border border-green-200 p-5 text-center relative overflow-hidden">
-                <div class="absolute top-0 left-0 w-full h-1 bg-green-500"></div>
-                <h3 class="text-sm font-black text-gray-800 mb-4">步驟 4：匯出至手機</h3>
-                <button onclick="window.generateICS()" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg shadow-lg hover:bg-green-600 active:scale-95 transition flex justify-center items-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    匯出 .ics 檔案
-                </button>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 mb-5 overflow-hidden">
+                <div class="p-4 flex justify-between items-center bg-gray-50 cursor-pointer active:bg-gray-100 transition" onclick="window.toggleExportHelp()">
+                    <h3 class="font-bold text-gray-700 flex items-center gap-2"><span>📖</span> 如何安裝至行事曆？</h3>
+                    <svg id="exportHelpIcon" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div id="exportHelpBody" class="px-4 overflow-hidden transition-all duration-300 bg-white" style="max-height: 0px; opacity: 0;">
+                    <div class="py-4 space-y-4 text-sm text-gray-600 leading-relaxed font-medium">
+                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶</span></p><p>點擊下方「匯出檔案」後，手機會跳出下載提示。下載完成後點開它，系統會問<span class="text-blue-600 font-bold">「要加入行事曆嗎？」</span>，點擊<span class="font-bold text-gray-800">「加入」</span>就瞬間完成囉！</p></div>
+                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊「匯出檔案」下載後，直接點開該檔案，<span class="text-blue-600 font-bold">Google 日曆</span>就會自動啟動並問你要不要匯入，按下<span class="font-bold text-gray-800">「確認」</span>即可！</p></div>
+                        <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs"><p class="font-bold text-yellow-800 mb-1">💡 溫馨小建議</p><p class="text-yellow-700">怕行事曆跟私事混在一起太亂嗎？建議先在手機日曆裡新增一個叫做<span class="font-bold">「捷運班表」</span>的分類，匯入時選它。以後不想看，只要取消打勾畫面就乾淨囉！</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-5">
+                <h3 class="text-sm font-black text-[#1b759a] mb-3">步驟 1：選擇要匯出的月份</h3>
+                <select id="exportCloudSchedules" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 mb-6 text-center">
+                    <option value="">請先至「班表作業」上傳班表</option>
+                </select>
+
+                <h3 class="text-sm font-black text-[#1b759a] mb-3">步驟 2：查詢名單</h3>
+                <div class="flex gap-2">
+                    <input type="text" id="exportEmpId" placeholder="輸入差號或姓名" onkeypress="if(event.key==='Enter') window.searchExportSchedule()" class="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold bg-gray-50 text-center shadow-inner">
+                    <button onclick="window.searchExportSchedule()" class="bg-[#1b759a] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 active:scale-95 transition">查詢</button>
+                </div>
+            </div>
+
+            <div id="exportResultArea" class="hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-5">
+                    <h3 class="text-sm font-black text-[#1b759a] mb-3 border-b border-gray-100 pb-2">步驟 3：確認班表 (唯讀預覽)</h3>
+                    <div class="flex justify-between items-center mb-2 px-1">
+                        <h2 id="exportMonthYearHeader" class="text-gray-700 text-sm font-black">----年 --月</h2>
+                        <div id="exportEmpInfoHeader" class="text-xs font-bold text-[#1b759a] bg-blue-50 border border-blue-100 px-3 py-1 rounded-md"></div>
+                    </div>
+                    <div class="grid grid-cols-7 text-center border-b border-gray-100 py-1.5 bg-gray-50 rounded-t-lg">
+                        <div class="text-[9px] font-bold text-gray-400">SUN</div><div class="text-[9px] font-bold text-gray-400">MON</div><div class="text-[9px] font-bold text-gray-400">TUE</div><div class="text-[9px] font-bold text-gray-400">WED</div><div class="text-[9px] font-bold text-[#1b759a]">THU</div><div class="text-[9px] font-bold text-gray-400">FRI</div><div class="text-[9px] font-bold text-gray-400">SAT</div>
+                    </div>
+                    <div id="exportCalendarGrid" class="grid grid-cols-7 bg-gray-200 gap-px rounded-b-lg overflow-hidden border border-gray-200"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-md border border-green-200 p-5 text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-green-500"></div>
+                    <h3 class="text-sm font-black text-gray-800 mb-4">步驟 4：匯出至手機</h3>
+                    <button onclick="window.generateICS()" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg shadow-lg hover:bg-green-600 active:scale-95 transition flex justify-center items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        匯出 .ics 檔案
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="view-settings" class="hidden max-w-md mx-auto px-4 mt-6">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-bold text-gray-800">⚙️ 任務時間設定庫</h2>
-            <span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200 uppercase">Cloud Sync</span>
-        </div>
-        
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 mb-6 sticky top-4 z-10 transition-all-300" id="editFormArea">
-            <h3 class="text-sm font-bold text-[#1b759a] mb-4">新增 / 編輯 / <span class="text-orange-500">搜尋任務時間</span></h3>
-            <div class="space-y-4">
-                <input type="text" id="newShiftName" oninput="window.renderShiftSettingsList()" placeholder="任務代號 (輸入文字可向下搜尋)" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold shadow-inner">
-                <div class="flex space-x-3">
-                    <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Start 上班</label><input type="time" id="newShiftStart" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold"></div>
-                    <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold"></div>
+    <!-- ========== 視圖 3：任務庫設定 ========== -->
+    <div id="view-settings" class="hidden">
+        <div class="bg-[#1b759a] shadow-sm sticky top-0 z-20">
+            <div class="p-3 flex justify-between items-center text-white cursor-default">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">⚙️</span>
+                    <h1 class="text-lg font-black tracking-wide">任務卡時間設定</h1>
                 </div>
-                <button onclick="window.saveShiftType()" class="w-full bg-[#1b759a] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.98] transition">儲存至雲端資料庫</button>
+                <!-- 💡 CLOUD SYNC 已徹底移除 -->
             </div>
         </div>
-        <div id="shiftSettingsList" class="space-y-3 pb-20"></div>
+
+        <div class="max-w-md mx-auto px-4 mt-5 pb-20">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 mb-6 sticky top-4 z-10 transition-all-300" id="editFormArea">
+                <h3 class="text-sm font-bold text-[#1b759a] mb-4">新增 / 編輯 / <span class="text-orange-500">搜尋任務時間</span></h3>
+                <div class="space-y-4">
+                    <input type="text" id="newShiftName" oninput="window.renderShiftSettingsList()" placeholder="任務代號 (輸入文字可向下搜尋)" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold shadow-inner">
+                    <div class="flex space-x-3">
+                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Start 上班</label><input type="time" id="newShiftStart" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold"></div>
+                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold"></div>
+                    </div>
+                    <button onclick="window.saveShiftType()" class="w-full bg-[#1b759a] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.98] transition">儲存至雲端資料庫</button>
+                </div>
+            </div>
+            <div id="shiftSettingsList" class="space-y-3 pb-20"></div>
+        </div>
     </div>
 
-    <nav class="fixed bottom-0 w-full max-w-md left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-md border-t border-gray-200 flex justify-around items-center pb-safe pt-2 z-30 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
-        <button id="btn-tab-schedule" onclick="window.switchTab('schedule')" class="flex-1 py-2 flex flex-col items-center text-[#1b759a] font-bold transition"><span class="text-2xl mb-0.5">📅</span><span class="text-[10px]">班表作業</span></button>
-        <button id="btn-tab-export" onclick="window.switchTab('export')" class="flex-1 py-2 flex flex-col items-center text-gray-400 font-bold transition"><span class="text-2xl mb-0.5">📤</span><span class="text-[10px]">班表匯出</span></button>
-        <button id="btn-tab-settings" onclick="window.switchTab('settings')" class="flex-1 py-2 flex flex-col items-center text-gray-400 font-bold transition"><span class="text-2xl mb-0.5">⚙️</span><span class="text-[10px]">任務設定</span></button>
+    <!-- 💡 優化底部導覽列 (去除多餘頂部線條，純底色標示) -->
+    <nav class="fixed bottom-0 w-full max-w-md left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md border-t border-gray-200 flex justify-around items-stretch pb-safe z-50 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
+        <button id="btn-tab-schedule" onclick="window.switchTab('schedule')" class="flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold">
+            <span class="text-[22px] mb-0.5">📅</span><span class="text-[10px]">班表作業</span>
+        </button>
+        <button id="btn-tab-export" onclick="window.switchTab('export')" class="flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold">
+            <span class="text-[22px] mb-0.5">📤</span><span class="text-[10px]">班表匯出</span>
+        </button>
+        <button id="btn-tab-settings" onclick="window.switchTab('settings')" class="flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold">
+            <span class="text-[22px] mb-0.5">⚙️</span><span class="text-[10px]">任務設定</span>
+        </button>
     </nav>
 
+    <!-- 詳細班別與換班 Modal -->
     <div id="shiftModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-modal overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
                 <div>
                     <h3 class="text-xl font-black text-gray-800" id="modalDate">日期</h3>
-                    <p class="text-xs font-bold text-[#1b759a] mt-1 bg-blue-50 inline-block px-2 py-0.5 rounded" id="modalEmpName">姓名</p>
+                    <p class="text-xs font-bold text-[#1b759a] mt-1 bg-blue-50 inline-block px-2 py-0.5 rounded border border-blue-100" id="modalEmpName">姓名</p>
                 </div>
                 <button onclick="window.closeModal()" class="bg-gray-100 text-gray-500 rounded-full p-2 outline-none active:scale-90 transition"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
@@ -193,6 +272,7 @@
         </div>
     </div>
 
+    <!-- 換班防呆確認 Modal -->
     <div id="swapConfirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">確定是這張卡嗎？</h3>
@@ -208,6 +288,7 @@
         </div>
     </div>
 
+    <!-- 刪除確認 Modal -->
     <div id="confirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal">
             <h3 class="text-xl font-black text-red-500 mb-2 flex items-center gap-2">⚠️ <span id="confirmTitle">確認</span></h3>
@@ -219,6 +300,7 @@
         </div>
     </div>
 
+    <!-- Firebase 邏輯模組 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -244,72 +326,92 @@
         window.currentYear = 0; window.currentMonth = 0; window.daysInMonth = 0;
         window.isPanelOpen = false;
         window.currentUser = null;
-
         window.searchedEmployees = []; 
         window.personalSwapNotes = {}; 
         window.exportTargetEmp = null; 
+        window.selectedPdfFile = null;
 
         function showToast(msg, isError = false) {
-            const t = document.getElementById('toastMsg');
-            const c = document.getElementById('toastContent');
-            c.innerText = msg;
-            c.className = `px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-center w-full ${isError ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`;
-            t.classList.remove('hidden');
-            t.classList.add('animate-toast');
+            const t = document.getElementById('toastMsg'); const c = document.getElementById('toastContent');
+            c.innerText = msg; c.className = `px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-center w-full ${isError ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`;
+            t.classList.remove('hidden'); t.classList.add('animate-toast');
             setTimeout(() => { t.classList.remove('animate-toast'); t.classList.add('hidden'); }, 3000);
         }
 
         window.customConfirm = (title, msg, onConfirmAction) => {
-            document.getElementById('confirmTitle').innerText = title;
-            document.getElementById('confirmMsg').innerText = msg;
-            const btn = document.getElementById('confirmActionBtn');
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.onclick = () => { window.closeConfirm(); onConfirmAction(); };
-            document.getElementById('confirmModal').classList.remove('hidden');
+            document.getElementById('confirmTitle').innerText = title; document.getElementById('confirmMsg').innerText = msg;
+            const btn = document.getElementById('confirmActionBtn'); const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.onclick = () => { window.closeConfirm(); onConfirmAction(); }; document.getElementById('confirmModal').classList.remove('hidden');
         };
         window.closeConfirm = () => document.getElementById('confirmModal').classList.add('hidden');
         window.closeSwapConfirm = () => document.getElementById('swapConfirmModal').classList.add('hidden');
 
         document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('customShiftDropdown');
-            const input = document.getElementById('queryShift');
+            const dropdown = document.getElementById('customShiftDropdown'); const input = document.getElementById('queryShift');
             if (dropdown && !dropdown.contains(e.target) && e.target !== input) { dropdown.classList.add('hidden'); }
         });
+
+        // 💡 升級版智慧摺疊控制 (解除下拉選單被遮擋的限制)
+        window.toggleAcc = (id, forceState = null) => {
+            const el = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            // 判斷目前是否展開 (用 800px 作為安全高度標記)
+            const isOpen = el.style.maxHeight === "800px";
+            const willOpen = forceState !== null ? forceState : !isOpen;
+
+            if (willOpen) {
+                // 展開前先設定隱藏，避免動畫過程破圖
+                el.style.overflow = "hidden";
+                el.style.maxHeight = "800px";
+                el.style.opacity = "1";
+                icon.style.transform = "rotate(180deg)";
+                // 動畫結束後 (300ms)，解除邊界限制，讓下拉選單可以衝出來！
+                setTimeout(() => {
+                    if (el.style.maxHeight === "800px") el.style.overflow = "visible";
+                }, 300);
+            } else {
+                // 收合前先恢復隱藏，才能有順暢的向上滑動效果
+                el.style.overflow = "hidden";
+                el.style.maxHeight = "0px";
+                el.style.opacity = "0";
+                icon.style.transform = "rotate(0deg)";
+            }
+        };
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 window.currentUser = user;
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftTypes'), (snap) => {
-                    window.customShifts = {};
-                    snap.forEach(d => window.customShifts[d.id] = d.data());
+                    window.customShifts = {}; snap.forEach(d => window.customShifts[d.id] = d.data());
                     window.renderShiftSettingsList(); window.updateDropdowns();
                     document.getElementById('loadingOverlay').classList.add('opacity-0');
                     setTimeout(()=> document.getElementById('loadingOverlay').classList.add('hidden'), 500);
                 });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'schedules'), (snap) => {
-                    const sel = document.getElementById('cloudSchedules');
+                    const mngSel = document.getElementById('cloudSchedules'); 
+                    const mainSel = document.getElementById('mainScheduleSelect');
                     const expSel = document.getElementById('exportCloudSchedules');
+                    
                     if (snap.empty) { 
-                        sel.innerHTML = '<option value="">目前雲端尚無班表</option>'; 
-                        expSel.innerHTML = '<option value="">目前雲端尚無班表</option>';
-                        return; 
+                        mngSel.innerHTML = '<option value="">目前雲端尚無班表</option>'; 
+                        mainSel.innerHTML = '<option value="">目前雲端尚無班表，請聯絡管理員上傳</option>'; 
+                        expSel.innerHTML = '<option value="">目前雲端尚無班表</option>'; return; 
                     }
-                    sel.innerHTML = '<option value="">請點選載入月份班表...</option>';
+                    mngSel.innerHTML = '<option value="">請選擇要刪除的班表...</option>'; 
+                    mainSel.innerHTML = '<option value="">請點選要查詢的月份...</option>'; 
                     expSel.innerHTML = '<option value="">請點選要匯出的月份...</option>';
+                    
                     window.cloudSchedulesDB = {};
                     snap.forEach(d => {
                         window.cloudSchedulesDB[d.id] = d.data();
                         const opt = `<option value="${d.id}">${d.data().year}年 ${d.data().month}月 班表</option>`;
-                        sel.innerHTML += opt;
-                        expSel.innerHTML += opt;
+                        mngSel.innerHTML += opt; mainSel.innerHTML += opt; expSel.innerHTML += opt;
                     });
                 });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'swapNotes'), (snap) => {
-                    window.personalSwapNotes = {};
-                    snap.forEach(d => window.personalSwapNotes[d.id] = d.data());
+                    window.personalSwapNotes = {}; snap.forEach(d => window.personalSwapNotes[d.id] = d.data());
                     if (window.searchedEmployees.length > 0) window.renderAllSchedules();
                 });
             } else { signInAnonymously(auth); }
@@ -318,58 +420,44 @@
         window.togglePanel = () => {
             const body = document.getElementById('controlPanelBody'); const icon = document.getElementById('panelToggleIcon'); const txt = document.getElementById('panelToggleText');
             window.isPanelOpen = !window.isPanelOpen;
-            if (window.isPanelOpen) { body.style.maxHeight = "400px"; body.style.opacity = "1"; icon.style.transform = "rotate(0deg)"; txt.innerText = "收合檔案管理"; }
+            if (window.isPanelOpen) { body.style.maxHeight = "500px"; body.style.opacity = "1"; icon.style.transform = "rotate(0deg)"; txt.innerText = "收合檔案管理"; }
             else { body.style.maxHeight = "0px"; body.style.opacity = "0"; icon.style.transform = "rotate(-180deg)"; txt.innerText = "展開檔案管理"; }
         };
 
-        window.loadCloudSchedule = () => {
-            const sid = document.getElementById('cloudSchedules').value;
-            if (!sid) return;
+        window.loadMainSchedule = () => {
+            const sid = document.getElementById('mainScheduleSelect').value; 
+            if (!sid) {
+                document.getElementById('actionSectionsContainer').classList.add('hidden');
+                return;
+            }
             const data = window.cloudSchedulesDB[sid];
-            window.allEmployees = data.employees;
-            window.currentYear = data.year; window.currentMonth = data.month;
-            window.daysInMonth = new Date(data.year, data.month, 0).getDate();
-            
+            window.allEmployees = data.employees; window.currentYear = data.year; window.currentMonth = data.month; window.daysInMonth = new Date(data.year, data.month, 0).getDate();
             window.searchedEmployees = window.searchedEmployees.map(item => {
-                const updatedEmp = window.allEmployees.find(e => e.name === item.emp.name);
-                return updatedEmp ? { emp: updatedEmp, isCollapsed: item.isCollapsed } : null;
+                const updatedEmp = window.allEmployees.find(e => e.name === item.emp.name); return updatedEmp ? { emp: updatedEmp, isCollapsed: item.isCollapsed } : null;
             }).filter(Boolean);
-
-            window.updateDropdowns();
-            window.renderAllSchedules();
-            showToast(`✅ 已載入 ${data.year}年${data.month}月 班表！`);
-            document.getElementById('shiftQueryContainer').classList.remove('hidden');
+            
+            window.updateDropdowns(); window.renderAllSchedules();
+            showToast(`✅ 已載入 ${data.year}年${data.month}月 班表！`); 
+            
+            document.getElementById('actionSectionsContainer').classList.remove('hidden');
+            window.toggleAcc('acc-select', false); 
+            window.toggleAcc('acc-search', true);  
         };
 
         window.searchSchedule = () => {
-            const inputEl = document.getElementById('empId');
-            const q = inputEl.value.trim().replace(/\s+/g, '').toLowerCase();
-            if (!q || window.allEmployees.length === 0) { showToast("⚠️ 請先選取雲端班表或輸入查詢條件", true); return; }
-            
+            const inputEl = document.getElementById('empId'); const q = inputEl.value.trim().replace(/\s+/g, '').toLowerCase();
+            if (!q || window.allEmployees.length === 0) { showToast("⚠️ 請輸入查詢條件", true); return; }
             let emp = window.allEmployees.find(e => e.searchTags && e.searchTags.some(tag => tag === q));
             if (!emp) emp = window.allEmployees.find(e => String(e.name).replace(/\s+/g, '').includes(q));
             if (!emp) { showToast(`❌ 找不到員工「${inputEl.value}」`, true); return; }
-            
             const existingIndex = window.searchedEmployees.findIndex(item => item.emp.name === emp.name);
-            if (existingIndex > -1) {
-                const item = window.searchedEmployees.splice(existingIndex, 1)[0];
-                item.isCollapsed = false; window.searchedEmployees.push(item); 
+            if (existingIndex > -1) { const item = window.searchedEmployees.splice(existingIndex, 1)[0]; item.isCollapsed = false; window.searchedEmployees.push(item); 
             } else { window.searchedEmployees.push({ emp: emp, isCollapsed: false }); }
-            
-            inputEl.value = ''; inputEl.blur(); window.renderAllSchedules();
-            showToast(`✅ ${emp.id !== '無' ? emp.id + ' ' : ''}${emp.name} 已加入駐列`);
+            inputEl.value = ''; inputEl.blur(); window.renderAllSchedules(); showToast(`✅ ${emp.id !== '無' ? emp.id + ' ' : ''}${emp.name} 已加入駐列`);
         };
 
-        window.removeEmpFromQueue = (empName, event) => {
-            event.stopPropagation();
-            window.searchedEmployees = window.searchedEmployees.filter(item => item.emp.name !== empName);
-            window.renderAllSchedules();
-        };
-
-        window.toggleEmpCollapse = (empName) => {
-            const item = window.searchedEmployees.find(item => item.emp.name === empName);
-            if (item) { item.isCollapsed = !item.isCollapsed; window.renderAllSchedules(); }
-        };
+        window.removeEmpFromQueue = (empName, event) => { event.stopPropagation(); window.searchedEmployees = window.searchedEmployees.filter(item => item.emp.name !== empName); window.renderAllSchedules(); };
+        window.toggleEmpCollapse = (empName) => { const item = window.searchedEmployees.find(item => item.emp.name === empName); if (item) { item.isCollapsed = !item.isCollapsed; window.renderAllSchedules(); } };
 
         window.renderAllSchedules = () => {
             const container = document.getElementById('multiScheduleContainer'); container.innerHTML = '';
@@ -435,12 +523,8 @@
         };
 
         window.openModal = (d, empName, empId, dataEncoded) => {
-            const s = JSON.parse(decodeURIComponent(dataEncoded));
-            const dateKey = `${window.currentYear}-${window.currentMonth}-${d}-${empName}`;
-            const note = window.personalSwapNotes[dateKey];
-
-            document.getElementById('modalDate').innerText = `${window.currentMonth}月 ${d}日`;
-            document.getElementById('modalEmpName').innerText = `${empId !== '無' ? empId + ' ' : ''}${empName}`;
+            const s = JSON.parse(decodeURIComponent(dataEncoded)); const dateKey = `${window.currentYear}-${window.currentMonth}-${d}-${empName}`; const note = window.personalSwapNotes[dateKey];
+            document.getElementById('modalDate').innerText = `${window.currentMonth}月 ${d}日`; document.getElementById('modalEmpName').innerText = `${empId !== '無' ? empId + ' ' : ''}${empName}`;
             
             const badge = document.getElementById('modalShiftBadge'); const time = document.getElementById('modalShiftTime');
             badge.innerText = s.isMissing ? "未確認" : s.display;
@@ -583,31 +667,49 @@
             });
         };
 
-        // --- 💡 終極分頁網格解析引擎 (徹底解決 16 Bug 與 0 人 Bug) ---
-        document.getElementById('pdfInput').addEventListener('change', async (e) => {
-            const f = e.target.files[0]; if (!f) return;
+        window.handleFileSelect = (e) => {
+            const f = e.target.files[0]; 
+            if (!f) return;
+            window.selectedPdfFile = f;
+            document.getElementById('pdfFileNameDisplay').innerText = `📄 已選擇：${f.name}`;
+            const btn = document.getElementById('pdfUploadBtn');
+            btn.disabled = false;
+            btn.className = "w-full bg-[#1b759a] text-white font-bold py-3 rounded-xl transition shadow-md hover:bg-blue-700 active:scale-95 text-sm";
+            btn.innerText = "2. 確認上傳並解析";
+        };
+
+        window.startPdfUpload = async () => {
+            if (!window.selectedPdfFile) return;
+            const btn = document.getElementById('pdfUploadBtn');
+            btn.disabled = true; btn.innerText = "⏳ 上傳與解析中...";
+            btn.className = "w-full bg-gray-400 text-white font-bold py-3 rounded-xl shadow-inner cursor-wait text-sm";
             showToast("⏳ 正在啟用分頁網格解析引擎更新底層...");
+
             try {
-                const buf = await f.arrayBuffer(); 
+                const buf = await window.selectedPdfFile.arrayBuffer(); 
                 window.pdfDocument = await pdfjsLib.getDocument({ data: buf }).promise;
                 await buildDbAndSync();
-            } catch (err) { showToast("❌ PDF 讀取出錯", true); console.error(err); }
-        });
+                document.getElementById('pdfFileNameDisplay').innerText = "1. 點擊此處選擇 PDF 檔案";
+                window.selectedPdfFile = null; btn.innerText = "2. 確認上傳並解析";
+                btn.className = "w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm";
+            } catch (err) { 
+                showToast("❌ PDF 讀取出錯", true); console.error(err);
+                btn.disabled = false; btn.innerText = "重新嘗試上傳";
+                btn.className = "w-full bg-red-500 text-white font-bold py-3 rounded-xl transition shadow-md text-sm";
+            }
+        };
 
+        // --- PDF 解析核心 (維持 175 人完美解析邏輯) ---
         async function buildDbAndSync() {
             window.allEmployees = [];
             const skip = ["早場", "早塔", "午場", "午塔", "夜場", "夜塔", "日段", "日副", "段長", "副段", "約休", "日間", "家庭", "備註", "春節", "國假", "特休"];
             let dateFound = false;
 
-            // 逐頁處理，絕對不讓不同頁的資料互相干擾
             for (let pageNum = 1; pageNum <= window.pdfDocument.numPages; pageNum++) {
                 const p = await window.pdfDocument.getPage(pageNum); 
                 const c = await p.getTextContent();
-                
-                // 抓取每一頁的文字並保留 X, Y 座標
                 let pageItems = c.items.map(it => ({ text: it.str.trim(), x: it.transform[4], y: it.transform[5] })).filter(it => it.text);
                 
-                // 由上到下(Y降序)，由左到右(X升序) 嚴格排序
                 pageItems.sort((a, b) => {
                     if (Math.abs(a.y - b.y) > 6) return b.y - a.y;
                     return a.x - b.x;
@@ -617,15 +719,13 @@
                     for (let obj of pageItems) {
                         const m = obj.text.match(/(\d+)\s*年\s*(\d+)\s*月/);
                         if (m) { 
-                            window.currentYear = parseInt(m[1]) + 1911; 
-                            window.currentMonth = parseInt(m[2]); 
+                            window.currentYear = parseInt(m[1]) + 1911; window.currentMonth = parseInt(m[2]); 
                             window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate();
                             dateFound = true; break; 
                         }
                     }
                 }
 
-                // 物理級切行 (Row Grouping)
                 let rows = []; let currentRow = []; let currentY = null;
                 for (let obj of pageItems) {
                     if (currentY === null) { currentY = obj.y; currentRow.push(obj); } 
@@ -634,50 +734,36 @@
                 }
                 if (currentRow.length > 0) rows.push(currentRow);
 
-                // 逐行解析
                 for (let row of rows) {
                     let nameIdx = -1; let empName = "";
-                    
-                    // 💡 破解黏字 Bug：將 "780 陳柏豪" 這類字串強制剪開
                     for (let i = 0; i < row.length; i++) {
-                        let t = row[i].text;
-                        let parts = t.split(/\s+/); // 用空白切開
-                        let lastPart = parts[parts.length - 1]; // 名字一定在最後面
+                        let t = row[i].text; let parts = t.split(/\s+/); let lastPart = parts[parts.length - 1]; 
                         
                         if (/^[\u4e00-\u9fa5]{2,4}$/.test(lastPart) && !skip.includes(lastPart) && !/^(早|午|夜|休|R|C|5|6|7|動|日)/.test(lastPart)) {
-                            // 如果真的是黏在一起的字
                             if (parts.length > 1) {
-                                row.splice(i, 1); // 刪除黏在一起的舊物件
-                                for (let p = 0; p < parts.length; p++) {
-                                    row.splice(i + p, 0, { text: parts[p], x: row[i]?row[i].x:0, y: row[i]?row[i].y:0 });
-                                }
-                                nameIdx = i + parts.length - 1; // 名字的新位置
-                            } else {
-                                nameIdx = i; // 本來就是單獨的名字
-                            }
-                            empName = lastPart;
-                            break;
+                                row.splice(i, 1); 
+                                for (let p = 0; p < parts.length; p++) { row.splice(i + p, 0, { text: parts[p], x: row[i]?row[i].x:0, y: row[i]?row[i].y:0 }); }
+                                nameIdx = i + parts.length - 1; 
+                            } else { nameIdx = i; }
+                            empName = lastPart; break;
                         }
                     }
 
                     if (nameIdx !== -1) {
                         let tags = []; let displayId = "無";
-                        
-                        // 💡 破解 16 Bug：只准往名字的「左邊（前面）」找，絕對不會抓到上一行的工時 16
                         for (let j = 0; j < nameIdx; j++) {
                             let preText = row[j].text;
                             if (/^[A-Za-z]?\d{1,6}$/.test(preText)) {
                                 tags.push(preText.toLowerCase());
-                                if (preText.length >= 1 && preText.length <= 4) displayId = preText; // 2~4碼必為差號
+                                if (preText.length >= 1 && preText.length <= 4) displayId = preText; 
                             }
                         }
                         if (displayId === "無" && tags.length > 0) displayId = tags[0]; 
 
                         let shifts = []; let k = nameIdx + 1;
-                        // 往名字的「右邊（後面）」找班別
                         while (shifts.length < window.daysInMonth && k < row.length) {
                             let st = row[k].text; k++;
-                            if (/^\d+(\.\d+)?$/.test(st) && parseFloat(st) >= 5 && parseFloat(st) <= 24) continue; // 跳過總工時數字
+                            if (/^\d+(\.\d+)?$/.test(st) && parseFloat(st) >= 5 && parseFloat(st) <= 24) continue; 
                             if (st === "" || st === " ") continue;
                             
                             let disp = st, h = false, l = false;
@@ -698,14 +784,11 @@
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sid), { year: window.currentYear, month: window.currentMonth, employees: window.allEmployees });
                     showToast(`✅ 新底層更新成功！(共解析 ${window.allEmployees.length} 人)`);
                 } catch(e) { showToast(`✅ 本機更新成功，但無法存入雲端`, true); }
-                document.getElementById('shiftQueryContainer').classList.remove('hidden');
-                window.updateDropdowns();
             } else {
                 showToast(`❌ 解析失敗：找不到任何員工資料，請確認 PDF 格式`, true);
             }
         }
 
-        // --- 管理與設定 ---
         window.deleteCloudSchedule = () => {
             const sid = document.getElementById('cloudSchedules').value;
             if (!sid) { showToast("⚠️ 請先選取", true); return; }
@@ -841,13 +924,21 @@
             document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast("🎉 行事曆檔案匯出成功！");
         };
 
+        // 💡 底部導覽列切換邏輯 (純色塊，無頂部線條)
         window.switchTab = (t) => {
             document.getElementById('view-schedule').className = t === 'schedule' ? 'block' : 'hidden';
             document.getElementById('view-export').className = t === 'export' ? 'block' : 'hidden';
             document.getElementById('view-settings').className = t === 'settings' ? 'block' : 'hidden';
-            document.getElementById('btn-tab-schedule').className = `flex-1 py-2 flex flex-col items-center transition ${t === 'schedule' ? 'text-[#1b759a] font-bold' : 'text-gray-400 font-bold'}`;
-            document.getElementById('btn-tab-export').className = `flex-1 py-2 flex flex-col items-center transition ${t === 'export' ? 'text-green-600 font-bold' : 'text-gray-400 font-bold'}`;
-            document.getElementById('btn-tab-settings').className = `flex-1 py-2 flex flex-col items-center transition ${t === 'settings' ? 'text-[#1b759a] font-bold' : 'text-gray-400 font-bold'}`;
+            
+            const tabs = ['schedule', 'export', 'settings'];
+            tabs.forEach(tab => {
+                const btn = document.getElementById('btn-tab-' + tab);
+                if (tab === t) {
+                    btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold`;
+                } else {
+                    btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold`;
+                }
+            });
             window.scrollTo({ top: 0 });
         };
     </script>
