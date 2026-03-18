@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>捷運司機員換班助手 (v2.3)</title>
+    <title>捷運司機員換班助手 (v2.4)</title>
     <!-- Tailwind CSS 與 PDF.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -11,6 +11,7 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     </script>
     <style>
+        /* 隱藏全網頁的捲軸，但保留內部容器捲軸 */
         ::-webkit-scrollbar { display: none; }
         .day-cell { -webkit-tap-highlight-color: transparent; }
         .transition-all-300 { transition: all 0.3s ease-in-out; }
@@ -18,6 +19,11 @@
         .animate-modal { animation: modal-fade 0.2s ease-out forwards; }
         @keyframes toast-slide-up { from { opacity: 0; transform: translateY(100%) translateX(-50%); } to { opacity: 1; transform: translateY(0) translateX(-50%); } }
         .animate-toast { animation: toast-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* 專為搜尋結果設計的微型捲軸 */
+        .custom-scrollbar::-webkit-scrollbar { display: block; width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased pb-28">
@@ -41,7 +47,7 @@
             <div class="p-3 flex justify-between items-center bg-[#1b759a] text-white cursor-pointer active:brightness-110 transition" onclick="window.togglePanel()">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班助手 (v2.3)</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班助手 (v2.4)</h1>
                 </div>
                 <div class="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg">
                     <span id="panelToggleText" class="text-[11px] font-bold">展開檔案管理</span>
@@ -87,7 +93,7 @@
                 </div>
                 <!-- 預設展開 -->
                 <div id="acc-select" class="transition-all duration-300" style="max-height: 800px; opacity: 1; overflow: visible;">
-                    <div class="p-4">
+                    <div class="px-4 pb-5 pt-2">
                         <select id="mainScheduleSelect" onchange="window.loadMainSchedule()" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 shadow-inner text-center">
                             <option value="">載入中...</option>
                         </select>
@@ -105,7 +111,7 @@
                     </div>
                     <!-- 預設收合 -->
                     <div id="acc-search" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
-                        <div class="p-4">
+                        <div class="px-4 pb-5 pt-2">
                             <div class="flex space-x-2">
                                 <input type="text" id="empId" placeholder="輸入差號或姓名" onkeypress="if(event.key==='Enter') window.searchSchedule()" class="flex-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#1b759a] outline-none text-sm shadow-inner font-bold bg-gray-50 text-center">
                                 <button onclick="window.searchSchedule()" class="bg-[#1b759a] text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition shadow-md text-sm whitespace-nowrap">搜尋</button>
@@ -115,14 +121,14 @@
                 </div>
 
                 <!-- 區塊 3：找任務卡 -->
-                <div class="bg-white">
+                <div class="border-b border-gray-100 bg-white">
                     <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-find')">
                         <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🎯</span> 找任務卡 <span class="text-xs text-gray-400 font-bold">(尋找換班對象)</span></label>
                         <svg id="icon-acc-find" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <!-- 預設收合 -->
                     <div id="acc-find" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
-                        <div class="p-4">
+                        <div class="px-4 pb-5 pt-2">
                             <div class="flex flex-row items-center justify-between gap-2 w-full">
                                 <select id="queryDate" class="border border-gray-300 rounded-xl px-2 py-3 w-[110px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
                                 
@@ -133,7 +139,10 @@
                                 </div>
                                 <button onclick="window.executeShiftQuery()" class="bg-gray-800 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-black active:scale-95 transition text-sm font-bold shadow-md">找人</button>
                             </div>
-                            <div id="queryResults" class="flex flex-col gap-2 mt-3 empty:hidden"></div>
+                            
+                            <!-- 💡 解決溢出遮擋：加入 max-h-[40vh] 與 overflow-y-auto custom-scrollbar -->
+                            <div id="queryResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
+                            
                             <div id="pinnedTagsContainer" class="pt-3 mt-3 border-t border-gray-100 hidden">
                                 <p class="text-[10px] text-gray-400 mb-2 font-bold uppercase tracking-widest">📌 已釘選</p>
                                 <div id="pinnedTags" class="flex flex-col gap-2"></div>
@@ -141,6 +150,31 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 💡 區塊 4：全新 找 R 班功能 -->
+                <div class="bg-white">
+                    <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-find-r')">
+                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🏖️</span> 找 R 班 <span class="text-xs text-gray-400 font-bold">(查詢休假人員)</span></label>
+                        <svg id="icon-acc-find-r" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div id="acc-find-r" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
+                        <div class="px-4 pb-5 pt-2">
+                            <div class="flex flex-row items-center justify-between gap-2 w-full">
+                                <select id="queryRDate" class="border border-gray-300 rounded-xl px-2 py-3 w-[110px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
+                                
+                                <select id="queryRType" class="flex-1 border border-gray-300 rounded-xl px-3 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center">
+                                    <option value="早">早班</option>
+                                    <option value="午">午班</option>
+                                    <option value="夜">夜班</option>
+                                </select>
+                                <button onclick="window.executeRQuery()" class="bg-green-600 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-green-700 active:scale-95 transition text-sm font-bold shadow-md">找休假</button>
+                            </div>
+                            <!-- 💡 解決溢出遮擋：加入 max-h-[40vh] 與 overflow-y-auto custom-scrollbar -->
+                            <div id="queryRResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -223,19 +257,38 @@
                     <span class="text-xl">⚙️</span>
                     <h1 class="text-lg font-black tracking-wide">任務卡時間設定</h1>
                 </div>
-                <!-- 💡 CLOUD SYNC 已徹底移除 -->
             </div>
         </div>
 
         <div class="max-w-md mx-auto px-4 mt-5 pb-20">
+            <!-- 💡 新增的屬性標記區塊 -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 mb-6 sticky top-4 z-10 transition-all-300" id="editFormArea">
-                <h3 class="text-sm font-bold text-[#1b759a] mb-4">新增 / 編輯 / <span class="text-orange-500">搜尋任務時間</span></h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-bold text-[#1b759a]">新增 / 編輯 / <span class="text-orange-500">搜尋任務時間</span></h3>
+                    <!-- 隱藏版大補帖按鈕 -->
+                    <button onclick="window.initDefaultRShifts()" class="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded shadow-sm font-bold active:scale-90 transition">自動建立預設R班庫</button>
+                </div>
+                
                 <div class="space-y-4">
                     <input type="text" id="newShiftName" oninput="window.renderShiftSettingsList()" placeholder="任務代號 (輸入文字可向下搜尋)" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold shadow-inner">
+                    
                     <div class="flex space-x-3">
-                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Start 上班</label><input type="time" id="newShiftStart" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold"></div>
-                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold"></div>
+                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Start 上班</label><input type="time" id="newShiftStart" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
+                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
                     </div>
+
+                    <!-- 💡 全新防呆選項 -->
+                    <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
+                        <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
+                            <input type="checkbox" id="newShiftIsR" onchange="window.toggleTimeInputs()" class="w-4 h-4 text-[#1b759a] rounded focus:ring-[#1b759a]">
+                            標記為 R 班 (休假，免填時間)
+                        </label>
+                        <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
+                            <input type="checkbox" id="newShiftIsSpecial" class="w-4 h-4 text-orange-500 rounded focus:ring-orange-500">
+                            特殊班型 (換班時顯示警告)
+                        </label>
+                    </div>
+
                     <button onclick="window.saveShiftType()" class="w-full bg-[#1b759a] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.98] transition">儲存至雲端資料庫</button>
                 </div>
             </div>
@@ -243,7 +296,7 @@
         </div>
     </div>
 
-    <!-- 💡 優化底部導覽列 (去除多餘頂部線條，純底色標示) -->
+    <!-- 底部導覽列 -->
     <nav class="fixed bottom-0 w-full max-w-md left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md border-t border-gray-200 flex justify-around items-stretch pb-safe z-50 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
         <button id="btn-tab-schedule" onclick="window.switchTab('schedule')" class="flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold">
             <span class="text-[22px] mb-0.5">📅</span><span class="text-[10px]">班表作業</span>
@@ -257,7 +310,7 @@
     </nav>
 
     <!-- 詳細班別與換班 Modal -->
-    <div id="shiftModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center backdrop-blur-sm p-4">
+    <div id="shiftModal" class="hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-modal overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
                 <div>
@@ -351,30 +404,18 @@
             if (dropdown && !dropdown.contains(e.target) && e.target !== input) { dropdown.classList.add('hidden'); }
         });
 
-        // 💡 升級版智慧摺疊控制 (解除下拉選單被遮擋的限制)
+        // 💡 升級版智慧摺疊控制
         window.toggleAcc = (id, forceState = null) => {
             const el = document.getElementById(id);
             const icon = document.getElementById('icon-' + id);
-            // 判斷目前是否展開 (用 800px 作為安全高度標記)
             const isOpen = el.style.maxHeight === "800px";
             const willOpen = forceState !== null ? forceState : !isOpen;
 
             if (willOpen) {
-                // 展開前先設定隱藏，避免動畫過程破圖
-                el.style.overflow = "hidden";
-                el.style.maxHeight = "800px";
-                el.style.opacity = "1";
-                icon.style.transform = "rotate(180deg)";
-                // 動畫結束後 (300ms)，解除邊界限制，讓下拉選單可以衝出來！
-                setTimeout(() => {
-                    if (el.style.maxHeight === "800px") el.style.overflow = "visible";
-                }, 300);
+                el.style.overflow = "hidden"; el.style.maxHeight = "800px"; el.style.opacity = "1"; icon.style.transform = "rotate(180deg)";
+                setTimeout(() => { if (el.style.maxHeight === "800px") el.style.overflow = "visible"; }, 300);
             } else {
-                // 收合前先恢復隱藏，才能有順暢的向上滑動效果
-                el.style.overflow = "hidden";
-                el.style.maxHeight = "0px";
-                el.style.opacity = "0";
-                icon.style.transform = "rotate(0deg)";
+                el.style.overflow = "hidden"; el.style.maxHeight = "0px"; el.style.opacity = "0"; icon.style.transform = "rotate(0deg)";
             }
         };
 
@@ -382,7 +423,13 @@
             if (user) {
                 window.currentUser = user;
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftTypes'), (snap) => {
-                    window.customShifts = {}; snap.forEach(d => window.customShifts[d.id] = d.data());
+                    window.customShifts = {}; 
+                    snap.forEach(d => {
+                        const data = d.data();
+                        // 💡 解除斜線封印：使用資料內的真實 name 作為記憶體中的 key
+                        const keyName = data.name || d.id; 
+                        window.customShifts[keyName] = data;
+                    });
                     window.renderShiftSettingsList(); window.updateDropdowns();
                     document.getElementById('loadingOverlay').classList.add('opacity-0');
                     setTimeout(()=> document.getElementById('loadingOverlay').classList.add('hidden'), 500);
@@ -426,10 +473,7 @@
 
         window.loadMainSchedule = () => {
             const sid = document.getElementById('mainScheduleSelect').value; 
-            if (!sid) {
-                document.getElementById('actionSectionsContainer').classList.add('hidden');
-                return;
-            }
+            if (!sid) { document.getElementById('actionSectionsContainer').classList.add('hidden'); return; }
             const data = window.cloudSchedulesDB[sid];
             window.allEmployees = data.employees; window.currentYear = data.year; window.currentMonth = data.month; window.daysInMonth = new Date(data.year, data.month, 0).getDate();
             window.searchedEmployees = window.searchedEmployees.map(item => {
@@ -496,10 +540,12 @@
 
                         let cellBg = "bg-white hover:bg-blue-50"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
                         let displayHtml = `<div class="font-black text-[11px]">${s.isMissing ? '未確認' : s.display}</div>`;
+                        
+                        let isLeaveDisplay = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
 
                         if (s.isMissing) { mainColor = "text-gray-400"; borderStyle = "border-dashed border-gray-300 bg-gray-50"; }
                         else if (s.isHolidayWork) { mainColor = "text-orange-600"; borderStyle = "border-orange-500 bg-orange-50"; }
-                        else if (s.isLeave) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
+                        else if (isLeaveDisplay) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
 
                         if (note) {
                             if (note.status === 'red') { cellBg = "bg-red-50 hover:bg-red-100"; displayHtml += `<div class="text-[9px] text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1">需處理</div>`; } 
@@ -530,14 +576,28 @@
             badge.innerText = s.isMissing ? "未確認" : s.display;
             badge.className = `inline-block px-6 py-2 rounded-2xl text-2xl font-black border-4 mb-2 shadow-sm ${s.isHolidayWork ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-[#1b759a] text-[#1b759a] bg-white'}`;
             
-            if (s.isLeave) time.innerHTML = '<span class="text-gray-400 font-bold text-xl py-2">休假日 🛌</span>';
-            else {
-                const info = window.customShifts[s.display];
+            const info = window.customShifts[s.display];
+            const isLeaveDisplay = s.isLeave || (info && info.isRClass);
+
+            if (isLeaveDisplay) {
+                time.innerHTML = '<span class="text-gray-400 font-bold text-xl py-2">休假日 🛌</span>';
+            } else {
                 time.innerHTML = info ? `<div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">START</span><span class="text-3xl font-black text-gray-800">${info.startTime}</span></div><div class="h-10 w-px bg-gray-200"></div><div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">END</span><span class="text-3xl font-black text-orange-500">${info.endTime}</span></div>` 
                     : '<span class="text-xs text-red-400 font-bold">未設定時間</span>';
             }
 
-            const controlArea = document.getElementById('swapControlArea'); let cHtml = '';
+            const controlArea = document.getElementById('swapControlArea'); 
+            
+            let warningHtml = '';
+            if (info && info.isSpecial) {
+                warningHtml = `
+                    <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2 shadow-sm">
+                        <span class="text-lg">⚠️</span>
+                        <p class="text-xs text-orange-700 font-bold leading-relaxed">此為特殊班型，依規定可能無法進行換班，請再三確認。</p>
+                    </div>`;
+            }
+
+            let cHtml = '';
 
             if (!note || note.status === 'red') {
                 const btnText = note && note.status === 'red' ? "取消紅色標記 (恢復白色)" : "📌 標記為需處理 (淺紅)";
@@ -584,7 +644,7 @@
                 `;
             }
 
-            controlArea.innerHTML = cHtml;
+            controlArea.innerHTML = warningHtml + cHtml;
             document.getElementById('shiftModal').classList.remove('hidden');
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
@@ -667,6 +727,39 @@
             });
         };
 
+        window.executeRQuery = () => {
+            const d = document.getElementById('queryRDate').value; 
+            const type = document.getElementById('queryRType').value; 
+            const res = document.getElementById('queryRResults'); res.innerHTML = '';
+            if (!d || !type) { showToast("⚠️ 請選擇日期與班型", true); return; }
+
+            const list = window.allEmployees.filter(e => {
+                const s = e.shifts[d - 1];
+                if (!s || s.isMissing) return false;
+                
+                let isR = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
+                const matchRole = e.role && e.role.includes(type);
+                return isR && matchRole;
+            });
+
+            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">當日無「${type}班」同仁排定休假</p>`; return; }
+            
+            list.forEach(e => {
+                const sDisp = e.shifts[d - 1].display;
+                const tag = document.createElement('div'); tag.className = "bg-white border border-green-200 p-3 rounded-xl flex justify-between items-center shadow-sm active:scale-95 transition-transform cursor-pointer hover:border-green-500";
+                tag.innerHTML = `<span class="text-sm font-bold text-gray-700">${window.currentMonth}/${d} ｜ <span class="text-green-600">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span><span class="text-[10px] bg-green-600 text-white px-2 py-1 rounded-lg font-black uppercase pointer-events-none shadow-sm">Pin 📌</span>`;
+                tag.onclick = () => {
+                    const tid = `pin-${d}-${encodeURIComponent(e.name)}`;
+                    if (document.getElementById(tid)) return;
+                    document.getElementById('pinnedTagsContainer').classList.remove('hidden');
+                    const p = document.createElement('div'); p.id = tid; p.className = "bg-gray-800 text-white p-3 rounded-xl flex justify-between items-center shadow-lg animate-modal";
+                    p.innerHTML = `<span class="text-xs font-bold tracking-wide">${window.currentMonth}/${d} ｜ <span class="text-green-400">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span><button onclick="this.parentElement.remove(); if(document.getElementById('pinnedTags').children.length===0) document.getElementById('pinnedTagsContainer').classList.add('hidden');" class="text-gray-400 hover:text-white p-1 font-bold bg-gray-700 rounded-lg active:scale-90 transition">✕</button>`;
+                    document.getElementById('pinnedTags').appendChild(p); showToast(`📌 已釘選休假人員：${e.name}`);
+                };
+                res.appendChild(tag);
+            });
+        };
+
         window.handleFileSelect = (e) => {
             const f = e.target.files[0]; 
             if (!f) return;
@@ -699,7 +792,6 @@
             }
         };
 
-        // --- PDF 解析核心 (維持 175 人完美解析邏輯) ---
         async function buildDbAndSync() {
             window.allEmployees = [];
             const skip = ["早場", "早塔", "午場", "午塔", "夜場", "夜塔", "日段", "日副", "段長", "副段", "約休", "日間", "家庭", "備註", "春節", "國假", "特休"];
@@ -750,12 +842,16 @@
                     }
 
                     if (nameIdx !== -1) {
-                        let tags = []; let displayId = "無";
+                        let tags = []; let displayId = "無"; let role = "未知";
+                        
                         for (let j = 0; j < nameIdx; j++) {
                             let preText = row[j].text;
                             if (/^[A-Za-z]?\d{1,6}$/.test(preText)) {
                                 tags.push(preText.toLowerCase());
                                 if (preText.length >= 1 && preText.length <= 4) displayId = preText; 
+                            }
+                            if (/(早|午|夜|日)/.test(preText) && preText.length >= 2) {
+                                role = preText; 
                             }
                         }
                         if (displayId === "無" && tags.length > 0) displayId = tags[0]; 
@@ -768,12 +864,12 @@
                             
                             let disp = st, h = false, l = false;
                             if (/R1[A-Z]出\/?(.+?)(約)?$/.test(st)) { disp = st.match(/R1[A-Z]出\/?(.+?)(約)?$/)[1]; h = true; }
-                            else if (/^(R|R1[A-Z]|休.*|事.*|病.*|喪.*|家照.*|補.*)$/.test(st)) l = true;
+                            else if (/^(R|R1[A-Z]|休.*|事.*|病.*|喪.*|家照.*|補.*|約休.*|約補.*)$/.test(st)) l = true;
                             
                             shifts.push({ raw: st, display: disp, isHolidayWork: h, isLeave: l });
                         }
                         while (shifts.length < window.daysInMonth) shifts.push({ display: "X", isMissing: true });
-                        window.allEmployees.push({ name: empName, id: displayId, searchTags: tags, shifts });
+                        window.allEmployees.push({ name: empName, id: displayId, searchTags: tags, shifts, role: role });
                     }
                 }
             }
@@ -799,21 +895,83 @@
             });
         };
 
+        // 💡 任務設定儲存邏輯 (解決特殊字元儲存被擋問題)
         window.saveShiftType = async () => {
-            const n = document.getElementById('newShiftName').value.trim(), s = document.getElementById('newShiftStart').value, e = document.getElementById('newShiftEnd').value;
-            if (!n || !s || !e) { showToast("❌ 請填寫完整", true); return; }
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n), { name: n, startTime: s, endTime: e });
-            document.getElementById('newShiftName').value = ''; document.getElementById('newShiftStart').value = ''; document.getElementById('newShiftEnd').value = '';
-            window.renderShiftSettingsList(); showToast("✅ 時間儲存成功");
+            const n = document.getElementById('newShiftName').value.trim();
+            const isR = document.getElementById('newShiftIsR').checked;
+            const isSpecial = document.getElementById('newShiftIsSpecial').checked;
+            
+            let s = document.getElementById('newShiftStart').value;
+            let e = document.getElementById('newShiftEnd').value;
+            
+            if (isR) { s = ''; e = ''; }
+            
+            if (!n || (!isR && (!s || !e))) { showToast("❌ 請填寫完整時間 (或勾選R班)", true); return; }
+            
+            // 使用 encodeURIComponent 轉碼特殊符號 (如 /) 作為安全的路徑 ID
+            const safeDocId = encodeURIComponent(n);
+            
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), { 
+                name: n, startTime: s, endTime: e, isRClass: isR, isSpecial: isSpecial 
+            });
+            
+            document.getElementById('newShiftName').value = ''; 
+            document.getElementById('newShiftStart').value = ''; 
+            document.getElementById('newShiftEnd').value = '';
+            document.getElementById('newShiftIsR').checked = false;
+            document.getElementById('newShiftIsSpecial').checked = false;
+            window.toggleTimeInputs();
+            window.renderShiftSettingsList(); showToast("✅ 設定儲存成功");
         };
 
-        window.editShiftType = (name, start, end) => {
-            document.getElementById('newShiftName').value = name; document.getElementById('newShiftStart').value = start; document.getElementById('newShiftEnd').value = end;
-            window.scrollTo({ top: 0, behavior: 'smooth' }); showToast("✏️ 帶入編輯");
+        window.editShiftType = (name, start, end, isR, isSpecial) => {
+            document.getElementById('newShiftName').value = name; 
+            document.getElementById('newShiftStart').value = start || ''; 
+            document.getElementById('newShiftEnd').value = end || '';
+            document.getElementById('newShiftIsR').checked = isR === 'true' || isR === true;
+            document.getElementById('newShiftIsSpecial').checked = isSpecial === 'true' || isSpecial === true;
+            window.toggleTimeInputs();
+            window.scrollTo({ top: 0, behavior: 'smooth' }); showToast("✏️ 已帶入上方準備編輯");
         };
 
         window.deleteShiftType = (n) => { 
-            window.customConfirm("刪除任務設定", `確定永久刪除「${n}」？`, async () => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); showToast("🗑️ 已刪除"); });
+            const safeDocId = encodeURIComponent(n);
+            window.customConfirm("刪除任務設定", `確定永久刪除「${n}」？`, async () => { 
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId)); 
+                showToast("🗑️ 已刪除"); 
+            });
+        };
+
+        window.toggleTimeInputs = () => {
+            const isR = document.getElementById('newShiftIsR').checked;
+            const sInput = document.getElementById('newShiftStart');
+            const eInput = document.getElementById('newShiftEnd');
+            sInput.disabled = isR; eInput.disabled = isR;
+            if (isR) {
+                sInput.value = ''; eInput.value = '';
+                sInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
+                eInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
+            } else {
+                sInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
+                eInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
+            }
+        };
+
+        window.initDefaultRShifts = async () => {
+            if(!window.currentUser) return;
+            const rShifts = ["R", "休8", "休8午", "休8夜", "事8", "病8", "補8", "家照8", "約休8早", "約休8午", "約補8午", "約補8早"];
+            for(let i=65; i<=90; i++) rShifts.push("R1" + String.fromCharCode(i));
+
+            showToast("⏳ 正在初始化龐大的預設 R 班庫...");
+            for (let r of rShifts) {
+                if(!window.customShifts[r]) {
+                    const safeDocId = encodeURIComponent(r);
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), {
+                        name: r, startTime: "", endTime: "", isRClass: true, isSpecial: false
+                    });
+                }
+            }
+            showToast("✅ 預設休假(R班)清單初始化完成！");
         };
 
         window.renderShiftSettingsList = () => {
@@ -825,10 +983,17 @@
 
             shifts.forEach(s => {
                 const d = document.createElement('div'); d.className = "bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-100";
+                
+                let badges = "";
+                if (s.isRClass) badges += `<span class="bg-gray-100 text-gray-500 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">休假屬性</span>`;
+                if (s.isSpecial) badges += `<span class="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">特殊班型</span>`;
+
+                const timeDisp = s.isRClass ? "🛌 系統判定休假 (無須時間)" : `🕒 ${s.startTime} - ${s.endTime}`;
+
                 d.innerHTML = `
-                    <div class="flex-1"><p class="font-black text-[#1b759a] text-lg">${s.name}</p><p class="text-[11px] text-gray-500 font-bold tracking-tighter mt-0.5">🕒 ${s.startTime} - ${s.endTime}</p></div>
+                    <div class="flex-1"><p class="font-black text-[#1b759a] text-lg flex items-center">${s.name} ${badges}</p><p class="text-[11px] text-gray-500 font-bold tracking-tighter mt-0.5">${timeDisp}</p></div>
                     <div class="flex items-center gap-2">
-                        <button onclick="window.editShiftType('${s.name}', '${s.startTime}', '${s.endTime}')" class="p-2.5 text-blue-500 bg-blue-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                        <button onclick="window.editShiftType('${s.name}', '${s.startTime}', '${s.endTime}', ${s.isRClass}, ${s.isSpecial})" class="p-2.5 text-blue-500 bg-blue-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
                         <button onclick="window.deleteShiftType('${s.name}')" class="p-2.5 text-red-500 bg-red-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
                     </div>`;
                 el.appendChild(d);
@@ -836,8 +1001,16 @@
         };
 
         window.updateDropdowns = () => {
-            const dSel = document.getElementById('queryDate'); dSel.innerHTML = '<option value="">選擇日期</option>';
-            if(window.daysInMonth > 0) for (let i = 1; i <= window.daysInMonth; i++) dSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
+            const dSel = document.getElementById('queryDate'); 
+            const rSel = document.getElementById('queryRDate'); 
+            dSel.innerHTML = '<option value="">選擇日期</option>';
+            rSel.innerHTML = '<option value="">選擇日期</option>';
+            if(window.daysInMonth > 0) {
+                for (let i = 1; i <= window.daysInMonth; i++) {
+                    dSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
+                    rSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
+                }
+            }
         };
 
         window.toggleExportHelp = () => {
@@ -873,7 +1046,9 @@
                 let mainColor = "text-[#1b759a] bg-white";
                 if (s.isMissing) { mainColor = "text-gray-400 bg-gray-50 opacity-60"; }
                 else if (s.isHolidayWork) { mainColor = "text-orange-600 bg-orange-50 font-black"; }
-                else if (s.isLeave) { mainColor = "text-gray-400 bg-gray-100"; }
+                else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { 
+                    mainColor = "text-gray-400 bg-gray-100"; 
+                }
                 grid.innerHTML += `<div class="flex flex-col items-center pt-1 h-16 border-b border-r border-gray-200 ${mainColor}"><span class="text-[10px] font-black text-gray-400 mb-0.5">${d}</span><div class="text-[10px] leading-tight font-bold">${s.isMissing ? '-' : s.display}</div></div>`;
             }
             document.getElementById('exportResultArea').classList.remove('hidden'); document.getElementById('exportEmpId').blur();
@@ -889,10 +1064,11 @@
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const shift = emp.shifts[d - 1];
-                if (!shift || shift.isMissing || shift.isLeave || shift.display === 'X') continue;
+                const shiftInfo = window.customShifts[shift.display];
+                
+                if (!shift || shift.isMissing || shift.isLeave || shift.display === 'X' || (shiftInfo && shiftInfo.isRClass)) continue;
 
                 const mm = month.toString().padStart(2, '0'); const dd = d.toString().padStart(2, '0'); const dateStr = `${year}${mm}${dd}`;
-                const shiftInfo = window.customShifts[shift.display];
 
                 icsContent += "BEGIN:VEVENT\r\n";
                 icsContent += `SUMMARY:${shift.display}\r\n`;
@@ -924,7 +1100,6 @@
             document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast("🎉 行事曆檔案匯出成功！");
         };
 
-        // 💡 底部導覽列切換邏輯 (純色塊，無頂部線條)
         window.switchTab = (t) => {
             document.getElementById('view-schedule').className = t === 'schedule' ? 'block' : 'hidden';
             document.getElementById('view-export').className = t === 'export' ? 'block' : 'hidden';
