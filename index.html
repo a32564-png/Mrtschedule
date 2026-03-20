@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>捷運司機員換班助手 (v2.4)</title>
+    <title>捷運司機員換班助手 (v2.5)</title>
     <!-- Tailwind CSS 與 PDF.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -11,7 +11,6 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     </script>
     <style>
-        /* 隱藏全網頁的捲軸，但保留內部容器捲軸 */
         ::-webkit-scrollbar { display: none; }
         .day-cell { -webkit-tap-highlight-color: transparent; }
         .transition-all-300 { transition: all 0.3s ease-in-out; }
@@ -20,7 +19,6 @@
         @keyframes toast-slide-up { from { opacity: 0; transform: translateY(100%) translateX(-50%); } to { opacity: 1; transform: translateY(0) translateX(-50%); } }
         .animate-toast { animation: toast-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
-        /* 專為搜尋結果設計的微型捲軸 */
         .custom-scrollbar::-webkit-scrollbar { display: block; width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -47,7 +45,7 @@
             <div class="p-3 flex justify-between items-center bg-[#1b759a] text-white cursor-pointer active:brightness-110 transition" onclick="window.togglePanel()">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班助手 (v2.4)</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班助手 (v2.5)</h1>
                 </div>
                 <div class="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg">
                     <span id="panelToggleText" class="text-[11px] font-bold">展開檔案管理</span>
@@ -55,7 +53,7 @@
                 </div>
             </div>
 
-            <!-- 檔案管理摺疊區 (純後台：不連動下方畫面) -->
+            <!-- 檔案管理摺疊區 -->
             <div id="controlPanelBody" class="bg-blue-50 transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
                 <div class="px-4 py-4 space-y-4">
                     <div>
@@ -83,7 +81,7 @@
             </div>
         </div>
 
-        <!-- 💡 前台操作區：三大操作區塊 (加上 relative z-40 解決圖層遮擋問題) -->
+        <!-- 💡 前台操作區 -->
         <div class="bg-white border-b border-gray-200 relative z-40 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)]">
             <!-- 區塊 1：選擇班表 -->
             <div class="border-b border-gray-100 bg-white">
@@ -91,7 +89,6 @@
                     <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>📅</span> 選擇班表</label>
                     <svg id="icon-acc-select" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
-                <!-- 預設展開 -->
                 <div id="acc-select" class="transition-all duration-300" style="max-height: 800px; opacity: 1; overflow: visible;">
                     <div class="px-4 pb-5 pt-2">
                         <select id="mainScheduleSelect" onchange="window.loadMainSchedule()" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 shadow-inner text-center">
@@ -106,10 +103,9 @@
                 <!-- 區塊 2：查詢個人班表 -->
                 <div class="border-b border-gray-100 bg-white">
                     <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-search')">
-                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🔍</span> 查詢個人班表 <span class="text-xs text-gray-400 font-bold">(加入駐列)</span></label>
+                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🔍</span> 查詢個人班表</label>
                         <svg id="icon-acc-search" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
-                    <!-- 預設收合 -->
                     <div id="acc-search" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
                         <div class="px-4 pb-5 pt-2">
                             <div class="flex space-x-2">
@@ -123,10 +119,9 @@
                 <!-- 區塊 3：找任務卡 -->
                 <div class="border-b border-gray-100 bg-white">
                     <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-find')">
-                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🎯</span> 找任務卡 <span class="text-xs text-gray-400 font-bold">(尋找換班對象)</span></label>
+                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🎯</span> 找任務卡</label>
                         <svg id="icon-acc-find" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
-                    <!-- 預設收合 -->
                     <div id="acc-find" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
                         <div class="px-4 pb-5 pt-2">
                             <div class="flex flex-row items-center justify-between gap-2 w-full">
@@ -134,13 +129,10 @@
                                 
                                 <div class="relative flex-1 min-w-0">
                                     <input type="text" id="queryShift" placeholder="輸入班別" autocomplete="off" onfocus="window.showCustomDropdown()" oninput="window.filterCustomDropdown()" class="w-full border border-gray-300 rounded-xl px-3 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center">
-                                    <!-- 確保選單擁有極高 Z 軸 -->
                                     <div id="customShiftDropdown" class="absolute top-full left-0 w-full bg-white border border-gray-200 shadow-2xl rounded-xl mt-1 max-h-48 overflow-y-auto z-[100] hidden divide-y divide-gray-100"></div>
                                 </div>
                                 <button onclick="window.executeShiftQuery()" class="bg-gray-800 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-black active:scale-95 transition text-sm font-bold shadow-md">找人</button>
                             </div>
-                            
-                            <!-- 💡 解決溢出遮擋：加入 max-h-[40vh] 與 overflow-y-auto custom-scrollbar -->
                             <div id="queryResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
                             
                             <div id="pinnedTagsContainer" class="pt-3 mt-3 border-t border-gray-100 hidden">
@@ -151,10 +143,10 @@
                     </div>
                 </div>
 
-                <!-- 💡 區塊 4：全新 找 R 班功能 -->
+                <!-- 區塊 4：找 R 班 -->
                 <div class="bg-white">
                     <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-find-r')">
-                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🏖️</span> 找 R 班 <span class="text-xs text-gray-400 font-bold">(查詢休假人員)</span></label>
+                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>🏖️</span> 找 R 班</label>
                         <svg id="icon-acc-find-r" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div id="acc-find-r" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
@@ -169,7 +161,6 @@
                                 </select>
                                 <button onclick="window.executeRQuery()" class="bg-green-600 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-green-700 active:scale-95 transition text-sm font-bold shadow-md">找休假</button>
                             </div>
-                            <!-- 💡 解決溢出遮擋：加入 max-h-[40vh] 與 overflow-y-auto custom-scrollbar -->
                             <div id="queryRResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
                         </div>
                     </div>
@@ -255,18 +246,16 @@
             <div class="p-3 flex justify-between items-center text-white cursor-default">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">⚙️</span>
-                    <h1 class="text-lg font-black tracking-wide">任務卡時間設定</h1>
+                    <h1 class="text-lg font-black tracking-wide">任務卡設定</h1>
                 </div>
             </div>
         </div>
 
         <div class="max-w-md mx-auto px-4 mt-5 pb-20">
-            <!-- 💡 新增的屬性標記區塊 -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 mb-6 sticky top-4 z-10 transition-all-300" id="editFormArea">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-bold text-[#1b759a]">新增 / 編輯 / <span class="text-orange-500">搜尋任務時間</span></h3>
-                    <!-- 隱藏版大補帖按鈕 -->
-                    <button onclick="window.initDefaultRShifts()" class="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded shadow-sm font-bold active:scale-90 transition">自動建立預設R班庫</button>
+                    <h3 class="text-sm font-bold text-[#1b759a]">新增 / 編輯 / <span class="text-orange-500">搜尋任務</span></h3>
+                    <button onclick="window.initDefaultRShifts()" class="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded shadow-sm font-bold active:scale-90 transition">任務卡更新</button>
                 </div>
                 
                 <div class="space-y-4">
@@ -277,11 +266,21 @@
                         <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
                     </div>
 
-                    <!-- 💡 全新防呆選項 -->
+                    <div class="w-full pt-1">
+                        <label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">上班地點</label>
+                        <select id="newShiftLocation" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors">
+                            <option value="七張車班">七張車班</option>
+                            <option value="新店機廠">新店機廠</option>
+                            <option value="松山駐點">松山駐點</option>
+                            <option value="特殊地點">特殊地點</option>
+                            <option value="" class="hidden">無 (休假)</option>
+                        </select>
+                    </div>
+
                     <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
                         <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
                             <input type="checkbox" id="newShiftIsR" onchange="window.toggleTimeInputs()" class="w-4 h-4 text-[#1b759a] rounded focus:ring-[#1b759a]">
-                            標記為 R 班 (休假，免填時間)
+                            標記為 R 班 (休假，免填時間/地點)
                         </label>
                         <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
                             <input type="checkbox" id="newShiftIsSpecial" class="w-4 h-4 text-orange-500 rounded focus:ring-orange-500">
@@ -320,7 +319,7 @@
                 <button onclick="window.closeModal()" class="bg-gray-100 text-gray-500 rounded-full p-2 outline-none active:scale-90 transition"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
             <div class="text-center mb-5"><div id="modalShiftBadge" class="inline-block px-6 py-2 rounded-2xl text-2xl font-black border-4 mb-2 shadow-sm">班別</div></div>
-            <div id="modalTimeContainer" class="bg-[#faf9f6] rounded-2xl p-4 border border-gray-100 shadow-inner mb-5"><div id="modalShiftTime" class="flex justify-center items-center gap-6"></div></div>
+            <div id="modalTimeContainer" class="bg-[#faf9f6] rounded-2xl p-4 border border-gray-100 shadow-inner mb-5"><div id="modalShiftTime" class="flex flex-col justify-center items-center w-full gap-2"></div></div>
             <div id="swapControlArea" class="border-t border-gray-100 pt-5"></div>
         </div>
     </div>
@@ -404,7 +403,6 @@
             if (dropdown && !dropdown.contains(e.target) && e.target !== input) { dropdown.classList.add('hidden'); }
         });
 
-        // 💡 升級版智慧摺疊控制
         window.toggleAcc = (id, forceState = null) => {
             const el = document.getElementById(id);
             const icon = document.getElementById('icon-' + id);
@@ -419,6 +417,15 @@
             }
         };
 
+        // 💡 智慧判斷上班地點邏輯
+        window.guessLocation = (name, isSpecial) => {
+            if (isSpecial) return "特殊地點";
+            const stripped = name.replace(/^\d+/, ''); // 剝除開頭數字
+            if (stripped.startsWith('H')) return "新店機廠";
+            if (stripped.startsWith('松')) return "松山駐點";
+            return "七張車班";
+        };
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 window.currentUser = user;
@@ -426,8 +433,15 @@
                     window.customShifts = {}; 
                     snap.forEach(d => {
                         const data = d.data();
-                        // 💡 解除斜線封印：使用資料內的真實 name 作為記憶體中的 key
                         const keyName = data.name || d.id; 
+                        
+                        // 自動補齊舊資料的地點 (記憶體層級推算)
+                        if (data.isRClass) {
+                            data.location = "";
+                        } else if (!data.location) {
+                            data.location = window.guessLocation(keyName, data.isSpecial);
+                        }
+                        
                         window.customShifts[keyName] = data;
                     });
                     window.renderShiftSettingsList(); window.updateDropdowns();
@@ -578,12 +592,18 @@
             
             const info = window.customShifts[s.display];
             const isLeaveDisplay = s.isLeave || (info && info.isRClass);
+            
+            // 💡 推算與顯示上班地點
+            const locDisp = (info && info.location) ? info.location : window.guessLocation(s.display, info ? info.isSpecial : false);
 
             if (isLeaveDisplay) {
                 time.innerHTML = '<span class="text-gray-400 font-bold text-xl py-2">休假日 🛌</span>';
             } else {
-                time.innerHTML = info ? `<div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">START</span><span class="text-3xl font-black text-gray-800">${info.startTime}</span></div><div class="h-10 w-px bg-gray-200"></div><div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">END</span><span class="text-3xl font-black text-orange-500">${info.endTime}</span></div>` 
-                    : '<span class="text-xs text-red-400 font-bold">未設定時間</span>';
+                if (info && info.startTime && info.endTime) {
+                    time.innerHTML = `<div class="flex justify-center items-center gap-6 w-full mb-1"><div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">START</span><span class="text-3xl font-black text-gray-800">${info.startTime}</span></div><div class="h-10 w-px bg-gray-200"></div><div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">END</span><span class="text-3xl font-black text-orange-500">${info.endTime}</span></div></div><div class="w-full pt-3 mt-1 border-t border-gray-200 text-center"><span class="text-xs font-bold text-gray-500 tracking-wider">📍 上班地點：<span class="text-[#1b759a] font-black">${locDisp}</span></span></div>`;
+                } else {
+                    time.innerHTML = `<div class="flex flex-col items-center w-full"><span class="text-xs text-red-400 font-bold mb-2 mt-1">未設定時間</span><div class="w-full pt-3 mt-1 border-t border-gray-200 text-center"><span class="text-xs font-bold text-gray-500 tracking-wider">📍 系統推算地點：<span class="text-[#1b759a] font-black">${locDisp}</span></span></div></div>`;
+                }
             }
 
             const controlArea = document.getElementById('swapControlArea'); 
@@ -895,7 +915,7 @@
             });
         };
 
-        // 💡 任務設定儲存邏輯 (解決特殊字元儲存被擋問題)
+        // 💡 任務設定儲存邏輯 (包含防崩潰處理)
         window.saveShiftType = async () => {
             const n = document.getElementById('newShiftName').value.trim();
             const isR = document.getElementById('newShiftIsR').checked;
@@ -903,33 +923,48 @@
             
             let s = document.getElementById('newShiftStart').value;
             let e = document.getElementById('newShiftEnd').value;
+            let loc = document.getElementById('newShiftLocation').value;
             
-            if (isR) { s = ''; e = ''; }
+            if (isR) { s = ''; e = ''; loc = ''; }
             
             if (!n || (!isR && (!s || !e))) { showToast("❌ 請填寫完整時間 (或勾選R班)", true); return; }
             
-            // 使用 encodeURIComponent 轉碼特殊符號 (如 /) 作為安全的路徑 ID
             const safeDocId = encodeURIComponent(n);
-            
+
+            // 💡 防崩潰機制：只有當舊名稱不包含斜線時，才去嘗試刪除它，否則會報錯
+            if (n !== safeDocId && !n.includes('/')) {
+                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){}
+            }
+
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), { 
-                name: n, startTime: s, endTime: e, isRClass: isR, isSpecial: isSpecial 
+                name: n, startTime: s, endTime: e, isRClass: isR, isSpecial: isSpecial, location: loc 
             });
             
             document.getElementById('newShiftName').value = ''; 
             document.getElementById('newShiftStart').value = ''; 
             document.getElementById('newShiftEnd').value = '';
+            document.getElementById('newShiftLocation').value = '七張車班';
             document.getElementById('newShiftIsR').checked = false;
             document.getElementById('newShiftIsSpecial').checked = false;
             window.toggleTimeInputs();
             window.renderShiftSettingsList(); showToast("✅ 設定儲存成功");
         };
 
-        window.editShiftType = (name, start, end, isR, isSpecial) => {
+        window.editShiftType = (name, start, end, isR, isSpecial, loc) => {
             document.getElementById('newShiftName').value = name; 
             document.getElementById('newShiftStart').value = start || ''; 
             document.getElementById('newShiftEnd').value = end || '';
             document.getElementById('newShiftIsR').checked = isR === 'true' || isR === true;
             document.getElementById('newShiftIsSpecial').checked = isSpecial === 'true' || isSpecial === true;
+            
+            let finalLoc = loc;
+            if (isR === 'true' || isR === true) {
+                finalLoc = '';
+            } else if (!finalLoc) {
+                finalLoc = window.guessLocation(name, isSpecial === 'true' || isSpecial === true);
+            }
+            document.getElementById('newShiftLocation').value = finalLoc || '七張車班';
+            
             window.toggleTimeInputs();
             window.scrollTo({ top: 0, behavior: 'smooth' }); showToast("✏️ 已帶入上方準備編輯");
         };
@@ -938,22 +973,38 @@
             const safeDocId = encodeURIComponent(n);
             window.customConfirm("刪除任務設定", `確定永久刪除「${n}」？`, async () => { 
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId)); 
+                
+                // 防崩潰機制
+                if (n !== safeDocId && !n.includes('/')) {
+                    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){}
+                }
                 showToast("🗑️ 已刪除"); 
             });
         };
+
+        document.getElementById('newShiftIsSpecial').addEventListener('change', (e) => {
+            const isR = document.getElementById('newShiftIsR').checked;
+            if (e.target.checked && !isR) {
+                document.getElementById('newShiftLocation').value = '特殊地點';
+            }
+        });
 
         window.toggleTimeInputs = () => {
             const isR = document.getElementById('newShiftIsR').checked;
             const sInput = document.getElementById('newShiftStart');
             const eInput = document.getElementById('newShiftEnd');
-            sInput.disabled = isR; eInput.disabled = isR;
+            const lInput = document.getElementById('newShiftLocation');
+            sInput.disabled = isR; eInput.disabled = isR; lInput.disabled = isR;
             if (isR) {
-                sInput.value = ''; eInput.value = '';
+                sInput.value = ''; eInput.value = ''; lInput.value = '';
                 sInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
                 eInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
+                lInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
             } else {
                 sInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
                 eInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
+                lInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
+                if(lInput.value === '') lInput.value = '七張車班';
             }
         };
 
@@ -962,16 +1013,37 @@
             const rShifts = ["R", "休8", "休8午", "休8夜", "事8", "病8", "補8", "家照8", "約休8早", "約休8午", "約補8午", "約補8早"];
             for(let i=65; i<=90; i++) rShifts.push("R1" + String.fromCharCode(i));
 
-            showToast("⏳ 正在初始化龐大的預設 R 班庫...");
+            showToast("⏳ 正在執行任務卡更新與舊資料地點分析...");
+            
             for (let r of rShifts) {
                 if(!window.customShifts[r]) {
                     const safeDocId = encodeURIComponent(r);
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), {
-                        name: r, startTime: "", endTime: "", isRClass: true, isSpecial: false
+                        name: r, startTime: "", endTime: "", isRClass: true, isSpecial: false, location: ""
                     });
                 }
             }
-            showToast("✅ 預設休假(R班)清單初始化完成！");
+
+            // 自動將舊資料的上班地點寫入資料庫，並刪除幽靈檔案
+            for (let key in window.customShifts) {
+                let s = window.customShifts[key];
+                const safeDocId = encodeURIComponent(s.name);
+                
+                let updatedData = { ...s };
+                if (s.isRClass && s.location !== "") {
+                    updatedData.location = "";
+                } else if (!s.isRClass && !s.location) {
+                    updatedData.location = window.guessLocation(s.name, s.isSpecial);
+                }
+                
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), updatedData);
+
+                // 💡 防崩潰刪除幽靈舊檔
+                if (s.name !== safeDocId && !s.name.includes('/')) {
+                    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', s.name)); } catch(e){}
+                }
+            }
+            showToast("✅ 任務卡更新與地點升級完成！");
         };
 
         window.renderShiftSettingsList = () => {
@@ -985,16 +1057,17 @@
                 const d = document.createElement('div'); d.className = "bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-100";
                 
                 let badges = "";
-                if (s.isRClass) badges += `<span class="bg-gray-100 text-gray-500 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">休假屬性</span>`;
-                if (s.isSpecial) badges += `<span class="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">特殊班型</span>`;
+                if (s.isRClass) badges += `<span class="bg-gray-100 text-gray-500 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">休假</span>`;
+                if (s.isSpecial) badges += `<span class="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">特殊</span>`;
 
-                const timeDisp = s.isRClass ? "🛌 系統判定休假 (無須時間)" : `🕒 ${s.startTime} - ${s.endTime}`;
+                const locDisplay = s.location || window.guessLocation(s.name, s.isSpecial);
+                const timeDisp = s.isRClass ? "🛌 休假日 (無地點/時間)" : `🕒 ${s.startTime} - ${s.endTime} &nbsp;&nbsp;📍 ${locDisplay}`;
 
                 d.innerHTML = `
                     <div class="flex-1"><p class="font-black text-[#1b759a] text-lg flex items-center">${s.name} ${badges}</p><p class="text-[11px] text-gray-500 font-bold tracking-tighter mt-0.5">${timeDisp}</p></div>
                     <div class="flex items-center gap-2">
-                        <button onclick="window.editShiftType('${s.name}', '${s.startTime}', '${s.endTime}', ${s.isRClass}, ${s.isSpecial})" class="p-2.5 text-blue-500 bg-blue-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                        <button onclick="window.deleteShiftType('${s.name}')" class="p-2.5 text-red-500 bg-red-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                        <button onclick="window.editShiftType('${s.name.replace(/'/g, "\\'")}', '${s.startTime}', '${s.endTime}', ${s.isRClass}, ${s.isSpecial}, '${(s.location || '').replace(/'/g, "\\'")}')" class="p-2.5 text-blue-500 bg-blue-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                        <button onclick="window.deleteShiftType('${s.name.replace(/'/g, "\\'")}')" class="p-2.5 text-red-500 bg-red-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
                     </div>`;
                 el.appendChild(d);
             });
@@ -1073,6 +1146,10 @@
                 icsContent += "BEGIN:VEVENT\r\n";
                 icsContent += `SUMMARY:${shift.display}\r\n`;
                 icsContent += `DESCRIPTION:捷運班表 (${emp.name})\r\n`;
+                
+                if (shiftInfo && shiftInfo.location) {
+                    icsContent += `LOCATION:${shiftInfo.location}\r\n`;
+                }
 
                 if (shiftInfo && shiftInfo.startTime && shiftInfo.endTime) {
                     const startParts = shiftInfo.startTime.split(':'); const endParts = shiftInfo.endTime.split(':');
