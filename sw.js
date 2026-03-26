@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mrt-schedule-v2.7';
+const CACHE_NAME = 'mrt-schedule-v2.8';
 const urlsToCache = [
   './index.html',
   './manifest.json',

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>換班小幫手</title>
+    <title>換班小幫手 v2.8</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1b759a">
@@ -45,9 +45,15 @@
     <div id="view-schedule" class="block">
         
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-50">
-            <div class="p-3 flex items-center gap-2 text-white cursor-default">
-                <span class="text-xl">📋</span>
-                <h1 class="text-lg font-black tracking-wide">換班小幫手 (v2.7)</h1>
+            <div class="p-3 flex items-center justify-between text-white cursor-default">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📋</span>
+                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v2.8)</h1>
+                </div>
+                <!-- 💡 新增：字體大小切換按鈕 -->
+                <button onclick="window.toggleFontSize()" class="p-1.5 bg-white/20 rounded-lg active:scale-90 transition flex items-center justify-center shadow-sm border border-white/10">
+                    <span class="font-black text-sm tracking-wider px-1">Aa</span>
+                </button>
             </div>
         </div>
 
@@ -57,7 +63,7 @@
                     <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>📅</span> 選擇班表</label>
                     <svg id="icon-acc-select" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
-                <div id="acc-select" class="transition-all duration-300" style="max-height: 800px; opacity: 1; overflow: visible;">
+                <div id="acc-select" class="transition-all duration-300" style="max-height: 2000px; opacity: 1; overflow: visible;">
                     <div class="px-4 pb-5 pt-2">
                         <select id="mainScheduleSelect" onchange="window.loadMainSchedule()" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 shadow-inner text-center">
                             <option value="">載入中...</option>
@@ -218,73 +224,95 @@
 
         <div class="max-w-md mx-auto px-4 mt-5 pb-20">
             
-            <div id="fileAdminSection" class="hidden bg-blue-50 rounded-2xl p-5 mb-6 shadow-sm border border-blue-100 transition-all duration-300">
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-[#1b759a] mb-2 uppercase">☁️ 雲端班表管理 (刪除用)</label>
-                        <div class="flex gap-2">
-                            <select id="cloudSchedules" class="flex-1 border border-blue-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-white font-bold text-gray-700">
-                                <option value="">載入中...</option>
-                            </select>
-                            <button onclick="window.deleteCloudSchedule()" class="bg-white text-red-500 border border-red-100 px-4 py-2.5 rounded-xl hover:bg-red-50 active:scale-95 transition flex items-center justify-center shadow-sm">
-                                <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="border-t border-blue-200 pt-3">
-                        <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase">📄 上傳新班表 PDF</label>
-                        <div class="flex flex-col gap-2">
-                            <label class="block w-full text-center border-2 border-dashed border-blue-300 bg-white hover:bg-blue-50 text-[#1b759a] font-bold py-3 rounded-xl cursor-pointer transition px-3">
-                                <span id="pdfFileNameDisplay" class="text-xs block truncate w-full">1. 點擊選擇 PDF 檔案</span>
-                                <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="window.handleFileSelect(event)">
-                            </label>
-                            <button id="pdfUploadBtn" onclick="window.startPdfUpload()" disabled class="w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm">2. 確認上傳並解析</button>
+            <!-- 💡 新增：雲端班表管理 折疊區塊 -->
+            <div id="fileAdminSection" class="hidden bg-white border border-blue-100 rounded-2xl shadow-sm mb-4 overflow-hidden">
+                <div class="p-4 flex justify-between items-center cursor-pointer active:bg-blue-50 transition" onclick="window.toggleAcc('acc-admin-file')">
+                    <label class="block text-[15px] font-black text-[#1b759a] pointer-events-none flex items-center gap-2"><span>☁️</span> 雲端班表管理</label>
+                    <svg id="icon-acc-admin-file" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div id="acc-admin-file" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
+                    <div class="px-5 pb-5 pt-3 bg-blue-50/50 border-t border-blue-50">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-[#1b759a] mb-2 uppercase">🗑️ 刪除舊班表</label>
+                                <div class="flex gap-2">
+                                    <select id="cloudSchedules" class="flex-1 border border-blue-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-white font-bold text-gray-700">
+                                        <option value="">載入中...</option>
+                                    </select>
+                                    <button onclick="window.deleteCloudSchedule()" class="bg-white text-red-500 border border-red-100 px-4 py-2.5 rounded-xl hover:bg-red-50 active:scale-95 transition flex items-center justify-center shadow-sm">
+                                        <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="border-t border-blue-200 pt-3">
+                                <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase">📄 上傳新班表 PDF</label>
+                                <div class="flex flex-col gap-2">
+                                    <label class="block w-full text-center border-2 border-dashed border-blue-300 bg-white hover:bg-blue-50 text-[#1b759a] font-bold py-3 rounded-xl cursor-pointer transition px-3">
+                                        <span id="pdfFileNameDisplay" class="text-xs block truncate w-full">1. 點擊選擇 PDF 檔案</span>
+                                        <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="window.handleFileSelect(event)">
+                                    </label>
+                                    <button id="pdfUploadBtn" onclick="window.startPdfUpload()" disabled class="w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm">2. 確認上傳並解析</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 mb-6 sticky top-4 z-10 transition-all-300">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-bold text-[#1b759a]">任務卡查詢與設定</h3>
-                    <button id="btnUpdateTasks" onclick="window.initDefaultRShifts()" class="hidden text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded shadow-sm font-bold active:scale-90 transition">任務卡更新</button>
+            <!-- 💡 新增：任務卡查詢與設定 折疊區塊 -->
+            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6">
+                <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition rounded-2xl" onclick="window.toggleAcc('acc-task-settings')">
+                    <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>⚙️</span> 任務卡查詢與設定</label>
+                    <svg id="icon-acc-task-settings" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
-                
-                <input type="text" id="newShiftName" oninput="window.renderShiftSettingsList()" placeholder="任務代號 (輸入文字可向下搜尋)" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold shadow-inner mb-4">
-                
-                <div id="shiftEditForm" class="hidden space-y-4">
-                    <div class="flex space-x-3">
-                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Start 上班</label><input type="time" id="newShiftStart" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
-                        <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
-                    </div>
+                <div id="acc-task-settings" class="transition-all duration-300" style="max-height: 2000px; opacity: 1; overflow: visible;">
+                    <div class="px-4 pb-5 pt-3 border-t border-gray-100">
+                        
+                        <div class="flex justify-between items-center mb-3">
+                            <p class="text-[11px] text-gray-400 font-bold uppercase tracking-widest">任務卡管理</p>
+                            <button id="btnUpdateTasks" onclick="window.initDefaultRShifts()" class="hidden text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded shadow-sm font-bold active:scale-90 transition">更新預設</button>
+                        </div>
+                        
+                        <input type="text" id="newShiftName" oninput="window.renderShiftSettingsList()" placeholder="任務代號 (輸入文字可向下搜尋)" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold shadow-inner mb-4">
+                        
+                        <div id="shiftEditForm" class="hidden space-y-4 mb-4 pb-4 border-b border-gray-100">
+                            <div class="flex space-x-3">
+                                <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Start 上班</label><input type="time" id="newShiftStart" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
+                                <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
+                            </div>
 
-                    <div class="w-full pt-1">
-                        <label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">上班地點</label>
-                        <select id="newShiftLocation" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors">
-                            <option value="七張車班">七張車班</option>
-                            <option value="新店機廠">新店機廠</option>
-                            <option value="松山駐點">松山駐點</option>
-                            <option value="特殊地點">特殊地點</option>
-                            <option value="" class="hidden">無 (休假)</option>
-                        </select>
-                    </div>
+                            <div class="w-full pt-1">
+                                <label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">上班地點</label>
+                                <select id="newShiftLocation" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors">
+                                    <option value="七張車班">七張車班</option>
+                                    <option value="新店機廠">新店機廠</option>
+                                    <option value="松山駐點">松山駐點</option>
+                                    <option value="特殊地點">特殊地點</option>
+                                    <option value="" class="hidden">無 (休假)</option>
+                                </select>
+                            </div>
 
-                    <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
-                        <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
-                            <input type="checkbox" id="newShiftIsR" onchange="window.toggleTimeInputs()" class="w-4 h-4 text-[#1b759a] rounded focus:ring-[#1b759a]">
-                            標記為 R 班 (休假，免填時間/地點)
-                        </label>
-                        <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
-                            <input type="checkbox" id="newShiftIsSpecial" class="w-4 h-4 text-orange-500 rounded focus:ring-orange-500">
-                            特殊班型 (換班時顯示警告)
-                        </label>
-                    </div>
+                            <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
+                                <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
+                                    <input type="checkbox" id="newShiftIsR" onchange="window.toggleTimeInputs()" class="w-4 h-4 text-[#1b759a] rounded focus:ring-[#1b759a]">
+                                    標記為 R 班 (休假，免填時間/地點)
+                                </label>
+                                <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
+                                    <input type="checkbox" id="newShiftIsSpecial" class="w-4 h-4 text-orange-500 rounded focus:ring-orange-500">
+                                    特殊班型 (換班時顯示警告)
+                                </label>
+                            </div>
 
-                    <button onclick="window.saveShiftType()" class="w-full bg-[#1b759a] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.98] transition">儲存至雲端資料庫</button>
+                            <button onclick="window.saveShiftType()" class="w-full bg-[#1b759a] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.98] transition">儲存至雲端資料庫</button>
+                        </div>
+
+                        <!-- 任務卡列表 -->
+                        <div id="shiftSettingsList" class="space-y-3 pb-4"></div>
+
+                    </div>
                 </div>
             </div>
             
-            <div id="shiftSettingsList" class="space-y-3 pb-20"></div>
         </div>
     </div>
 
@@ -301,7 +329,7 @@
         </button>
     </nav>
 
-    <!-- 💡 密碼輸入專屬 Modal (修復 Canvas 預覽彈窗問題) -->
+    <!-- 💡 密碼輸入專屬 Modal -->
     <div id="pwdModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">系統管理員解鎖</h3>
@@ -398,10 +426,12 @@
         // =========================================================
         // 🔒 系統管理員設定區 
         // =========================================================
-        const ADMIN_PASSWORD = "28830"; // 👈 未來想改密碼，直接修改引號內的數字即可
+        const ADMIN_PASSWORD = "28830";
         window.isAdmin = false;
+        
+        // 💡 新增：字體大小全域變數 (0=標準, 1=放大, 2=特大)
+        window.fontSizeLevel = 0;
 
-        // 💡 全新設計的密碼輸入視窗邏輯 (避開瀏覽器阻擋 prompt 的問題)
         window.closePwdModal = () => {
             document.getElementById('pwdModal').classList.add('hidden');
             document.getElementById('adminPwdInput').value = '';
@@ -428,7 +458,6 @@
                 window.renderAdminUI();
                 window.renderShiftSettingsList(); 
             } else {
-                // 彈出專屬的密碼輸入 Modal
                 document.getElementById('pwdModal').classList.remove('hidden');
                 setTimeout(() => document.getElementById('adminPwdInput').focus(), 100);
             }
@@ -451,13 +480,24 @@
                 if(shiftEditForm) shiftEditForm.classList.add('hidden');
                 if(updateBtn) updateBtn.classList.add('hidden');
                 
-                // 鎖定時清空輸入框
                 const nName = document.getElementById('newShiftName');
                 const nStart = document.getElementById('newShiftStart');
                 const nEnd = document.getElementById('newShiftEnd');
                 if(nName) nName.value = '';
                 if(nStart) nStart.value = '';
                 if(nEnd) nEnd.value = '';
+            }
+        };
+
+        // 💡 新增：字體大小切換邏輯
+        window.toggleFontSize = () => {
+            window.fontSizeLevel = (window.fontSizeLevel + 1) % 3;
+            const sizeNames = ["標準", "放大", "特大"];
+            showToast(`🔍 字體已切換為：${sizeNames[window.fontSizeLevel]}`);
+            
+            // 如果畫面上已經有班表，立刻重新渲染套用新字體與高度
+            if (window.searchedEmployees.length > 0) {
+                window.renderAllSchedules();
             }
         };
         // =========================================================
@@ -507,15 +547,16 @@
             if (dropdown && !dropdown.contains(e.target) && e.target !== input) { dropdown.classList.add('hidden'); }
         });
 
+        // 💡 修改：調整 Accordion 高度限制以容納較長的列表
         window.toggleAcc = (id, forceState = null) => {
             const el = document.getElementById(id);
             const icon = document.getElementById('icon-' + id);
-            const isOpen = el.style.maxHeight === "800px";
+            const isOpen = el.style.maxHeight === "2000px";
             const willOpen = forceState !== null ? forceState : !isOpen;
 
             if (willOpen) {
-                el.style.overflow = "hidden"; el.style.maxHeight = "800px"; el.style.opacity = "1"; icon.style.transform = "rotate(180deg)";
-                setTimeout(() => { if (el.style.maxHeight === "800px") el.style.overflow = "visible"; }, 300);
+                el.style.overflow = "hidden"; el.style.maxHeight = "2000px"; el.style.opacity = "1"; icon.style.transform = "rotate(180deg)";
+                setTimeout(() => { if (el.style.maxHeight === "2000px") el.style.overflow = "visible"; }, 300);
             } else {
                 el.style.overflow = "hidden"; el.style.maxHeight = "0px"; el.style.opacity = "0"; icon.style.transform = "rotate(0deg)";
             }
@@ -581,13 +622,6 @@
             } else { signInAnonymously(auth); }
         });
 
-        window.togglePanel = () => {
-            const body = document.getElementById('controlPanelBody'); const icon = document.getElementById('panelToggleIcon'); const txt = document.getElementById('panelToggleText');
-            window.isPanelOpen = !window.isPanelOpen;
-            if (window.isPanelOpen) { body.style.maxHeight = "500px"; body.style.opacity = "1"; icon.style.transform = "rotate(0deg)"; txt.innerText = "收合檔案管理"; }
-            else { body.style.maxHeight = "0px"; body.style.opacity = "0"; icon.style.transform = "rotate(-180deg)"; txt.innerText = "展開檔案管理"; }
-        };
-
         window.loadMainSchedule = () => {
             const sid = document.getElementById('mainScheduleSelect').value; 
             if (!sid) { document.getElementById('actionSectionsContainer').classList.add('hidden'); return; }
@@ -633,9 +667,22 @@
         window.removeEmpFromQueue = (empName, event) => { event.stopPropagation(); window.searchedEmployees = window.searchedEmployees.filter(item => item.emp.name !== empName); window.renderAllSchedules(); };
         window.toggleEmpCollapse = (empName) => { const item = window.searchedEmployees.find(item => item.emp.name === empName); if (item) { item.isCollapsed = !item.isCollapsed; window.renderAllSchedules(); } };
 
+        // 💡 修改：依據字體等級 (fontSizeLevel) 動態套用排版 Class
         window.renderAllSchedules = () => {
             const container = document.getElementById('multiScheduleContainer'); container.innerHTML = '';
             if(window.searchedEmployees.length === 0) return;
+
+            // 定義三個字體等級的 CSS 設定 (文字大小、高度)
+            let fsClass = "text-[11px]"; let cHeight = "h-24"; let dSize = "text-xs"; let wMinH = "min-h-[44px]";
+            let ntSize = "text-[9px]"; let ntTgtSize = "text-[11px]"; let ntBdgeSize = "text-[10px]";
+
+            if (window.fontSizeLevel === 1) { // 放大
+                fsClass = "text-sm"; cHeight = "h-28"; dSize = "text-sm"; wMinH = "min-h-[52px]";
+                ntSize = "text-[10px]"; ntTgtSize = "text-xs"; ntBdgeSize = "text-[11px]";
+            } else if (window.fontSizeLevel === 2) { // 特大
+                fsClass = "text-base"; cHeight = "h-32"; dSize = "text-base"; wMinH = "min-h-[60px]";
+                ntSize = "text-[11px]"; ntTgtSize = "text-sm"; ntBdgeSize = "text-xs";
+            }
 
             window.searchedEmployees.forEach(item => {
                 const emp = item.emp;
@@ -661,7 +708,7 @@
 
                     const grid = document.createElement('div'); grid.className = "grid grid-cols-7 bg-gray-100 gap-px";
                     const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
-                    for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-50 h-24 opacity-30"></div>`;
+                    for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-50 ${cHeight} opacity-30"></div>`;
 
                     for (let d = 1; d <= window.daysInMonth; d++) {
                         const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
@@ -669,7 +716,7 @@
                         const note = window.personalSwapNotes[dateKey];
 
                         let cellBg = "bg-white hover:bg-blue-50"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
-                        let displayHtml = `<div class="font-black text-[11px]">${s.isMissing ? '未確認' : s.display}</div>`;
+                        let displayHtml = `<div class="font-black ${fsClass}">${s.isMissing ? '未確認' : s.display}</div>`;
                         
                         let isLeaveDisplay = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
 
@@ -678,19 +725,22 @@
                         else if (isLeaveDisplay) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
 
                         if (note) {
-                            if (note.status === 'red') { cellBg = "bg-red-50 hover:bg-red-100"; displayHtml += `<div class="text-[9px] text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1">需處理</div>`; } 
+                            if (note.status === 'red') { 
+                                cellBg = "bg-red-50 hover:bg-red-100"; 
+                                displayHtml += `<div class="${ntSize} text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1">需處理</div>`; 
+                            } 
                             else if (note.status === 'yellow') {
                                 cellBg = "bg-yellow-50 hover:bg-yellow-100"; borderStyle = "border-yellow-400";
                                 const displayTarget = note.targetId || note.targetName;
-                                displayHtml += `<div class="text-[10px] text-yellow-700 mt-1 border-t border-yellow-300 pt-1 font-bold leading-tight flex flex-col items-center"><span class="text-[11px] text-yellow-800 font-black">${displayTarget}</span><span class="bg-white px-1 rounded shadow-sm mt-0.5">${note.targetShift}</span></div>`;
+                                displayHtml += `<div class="${ntSize} text-yellow-700 mt-1 border-t border-yellow-300 pt-1 font-bold leading-tight flex flex-col items-center"><span class="${ntTgtSize} text-yellow-800 font-black">${displayTarget}</span><span class="bg-white px-1 rounded shadow-sm mt-0.5">${note.targetShift}</span></div>`;
                             } else if (note.status === 'green') {
                                 cellBg = "bg-green-50 hover:bg-green-100"; borderStyle = "border-green-500 shadow-sm";
                                 const displayTarget = note.targetId || note.targetName;
-                                displayHtml = `<div class="font-bold text-[9px] text-gray-400 line-through mb-0.5">${s.display}</div><div class="font-black text-[12px] text-green-700">${note.targetShift}</div><div class="text-[8px] text-green-600 mt-0.5 font-bold">與 ${displayTarget}</div>`;
+                                displayHtml = `<div class="font-bold text-[9px] text-gray-400 line-through mb-0.5">${s.display}</div><div class="font-black ${fsClass} text-green-700">${note.targetShift}</div><div class="text-[8px] text-green-600 mt-0.5 font-bold">與 ${displayTarget}</div>`;
                             }
                         }
                         const safeShiftData = encodeURIComponent(JSON.stringify(s));
-                        grid.innerHTML += `<div onclick="window.openModal(${d}, '${emp.name}', '${emp.id}', '${safeShiftData}')" class="flex flex-col items-center pt-1.5 h-24 cursor-pointer transition-colors ${cellBg}"><span class="text-xs font-black text-gray-400 mb-1">${d}</span><div class="border rounded-lg px-0.5 py-1 w-[92%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center min-h-[44px] shadow-sm">${displayHtml}</div></div>`;
+                        grid.innerHTML += `<div onclick="window.openModal(${d}, '${emp.name}', '${emp.id}', '${safeShiftData}')" class="flex flex-col items-center pt-1.5 ${cHeight} cursor-pointer transition-colors ${cellBg}"><span class="${dSize} font-black text-gray-400 mb-1">${d}</span><div class="border rounded-lg px-0.5 py-1 w-[92%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center ${wMinH} shadow-sm">${displayHtml}</div></div>`;
                     }
                     gridWrapper.appendChild(grid); block.appendChild(gridWrapper);
                 }
@@ -783,7 +833,7 @@
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
 
-        // 💡 唯讀班表檢視 Modal
+        // 💡 修改：唯讀模式也套用字體動態調整
         window.openReadOnlySchedule = (empName) => {
             const emp = window.allEmployees.find(e => e.name === empName);
             if (!emp) return;
@@ -797,9 +847,13 @@
 
             const grid = document.getElementById('roModalGrid');
             grid.innerHTML = '';
+            
+            let fsClass = "text-[11px]"; let cHeight = "h-20"; let dSize = "text-[10px]"; let wMinH = "min-h-[40px]";
+            if (window.fontSizeLevel === 1) { fsClass = "text-sm"; cHeight = "h-24"; dSize = "text-xs"; wMinH = "min-h-[48px]"; } 
+            else if (window.fontSizeLevel === 2) { fsClass = "text-base"; cHeight = "h-28"; dSize = "text-sm"; wMinH = "min-h-[56px]"; }
 
             const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
-            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 h-20 opacity-30"></div>`;
+            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 ${cHeight} opacity-30"></div>`;
 
             for (let d = 1; d <= window.daysInMonth; d++) {
                 const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
@@ -807,7 +861,7 @@
                 const note = window.personalSwapNotes[dateKey];
 
                 let cellBg = "bg-white"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
-                let displayHtml = `<div class="font-black text-[11px]">${s.isMissing ? '未確認' : s.display}</div>`;
+                let displayHtml = `<div class="font-black ${fsClass}">${s.isMissing ? '未確認' : s.display}</div>`;
                 
                 let isLeaveDisplay = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
 
@@ -824,11 +878,11 @@
                     } else if (note.status === 'green') {
                         cellBg = "bg-green-50"; borderStyle = "border-green-500 shadow-sm";
                         const displayTarget = note.targetId || note.targetName;
-                        displayHtml = `<div class="font-bold text-[8px] text-gray-400 line-through mb-0.5 leading-none">${s.display}</div><div class="font-black text-[11px] text-green-700 leading-none">${note.targetShift}</div>`;
+                        displayHtml = `<div class="font-bold text-[8px] text-gray-400 line-through mb-0.5 leading-none">${s.display}</div><div class="font-black ${fsClass} text-green-700 leading-none">${note.targetShift}</div>`;
                     }
                 }
                 
-                grid.innerHTML += `<div class="flex flex-col items-center pt-1 h-20 border-b border-r border-gray-200 ${cellBg}"><span class="text-[10px] font-black text-gray-400 mb-1">${d}</span><div class="border rounded px-0.5 py-1 w-[90%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center min-h-[40px] shadow-sm">${displayHtml}</div></div>`;
+                grid.innerHTML += `<div class="flex flex-col items-center pt-1 ${cHeight} border-b border-r border-gray-200 ${cellBg}"><span class="${dSize} font-black text-gray-400 mb-1">${d}</span><div class="border rounded px-0.5 py-1 w-[90%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center ${wMinH} shadow-sm">${displayHtml}</div></div>`;
             }
             document.getElementById('readOnlyScheduleModal').classList.remove('hidden');
         };
