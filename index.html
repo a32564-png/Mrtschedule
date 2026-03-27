@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>換班小幫手 v2.8</title>
+    <title>換班小幫手 v2.9</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1b759a">
@@ -48,9 +48,9 @@
             <div class="p-3 flex items-center justify-between text-white cursor-default">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v2.8)</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v2.9)</h1>
                 </div>
-                <!-- 💡 新增：字體大小切換按鈕 -->
+                <!-- 💡 字體大小切換按鈕 -->
                 <button onclick="window.toggleFontSize()" class="p-1.5 bg-white/20 rounded-lg active:scale-90 transition flex items-center justify-center shadow-sm border border-white/10">
                     <span class="font-black text-sm tracking-wider px-1">Aa</span>
                 </button>
@@ -165,7 +165,7 @@
                 <div id="exportHelpBody" class="px-4 overflow-hidden transition-all duration-300 bg-white" style="max-height: 0px; opacity: 0;">
                     <div class="py-4 space-y-4 text-sm text-gray-600 leading-relaxed font-medium">
                         <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶</span></p><p>點擊下方「匯出檔案」後，手機會跳出下載提示。下載完成後點開它，系統會問<span class="text-blue-600 font-bold">「要加入行事曆嗎？」</span>，點擊<span class="font-bold text-gray-800">「加入」</span>就瞬間完成囉！</p></div>
-                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊「匯出檔案」下載後，直接點開該檔案，<span class="text-blue-600 font-bold">Google 日曆</span>就會自動啟動並問你要不要匯入，按下<span class="font-bold text-gray-800">「確認」</span>即可！</p></div>
+                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊「匯出檔案」下載後，直接點開該檔案，<span class="text-blue-600 font-bold">Google 日曆</span>就會自動啟動並問你要不要匯入，按下<span class="font-bold text-gray-800">「確認」</span>即可！如果顯示無法開啟，請使用「Email 寄給自己」的方式在 Gmail 內點開即可成功匯入。</p></div>
                         <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs"><p class="font-bold text-yellow-800 mb-1">💡 溫馨小建議</p><p class="text-yellow-700">怕行事曆跟私事混在一起太亂嗎？建議先在手機日曆裡新增一個叫做<span class="font-bold">「捷運班表」</span>的分類，匯入時選它。以後不想看，只要取消打勾畫面就乾淨囉！</p></div>
                     </div>
                 </div>
@@ -224,7 +224,6 @@
 
         <div class="max-w-md mx-auto px-4 mt-5 pb-20">
             
-            <!-- 💡 新增：雲端班表管理 折疊區塊 -->
             <div id="fileAdminSection" class="hidden bg-white border border-blue-100 rounded-2xl shadow-sm mb-4 overflow-hidden">
                 <div class="p-4 flex justify-between items-center cursor-pointer active:bg-blue-50 transition" onclick="window.toggleAcc('acc-admin-file')">
                     <label class="block text-[15px] font-black text-[#1b759a] pointer-events-none flex items-center gap-2"><span>☁️</span> 雲端班表管理</label>
@@ -259,7 +258,6 @@
                 </div>
             </div>
 
-            <!-- 💡 新增：任務卡查詢與設定 折疊區塊 -->
             <div class="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6">
                 <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition rounded-2xl" onclick="window.toggleAcc('acc-task-settings')">
                     <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>⚙️</span> 任務卡查詢與設定</label>
@@ -306,7 +304,6 @@
                             <button onclick="window.saveShiftType()" class="w-full bg-[#1b759a] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.98] transition">儲存至雲端資料庫</button>
                         </div>
 
-                        <!-- 任務卡列表 -->
                         <div id="shiftSettingsList" class="space-y-3 pb-4"></div>
 
                     </div>
@@ -429,7 +426,6 @@
         const ADMIN_PASSWORD = "28830";
         window.isAdmin = false;
         
-        // 💡 新增：字體大小全域變數 (0=標準, 1=放大, 2=特大)
         window.fontSizeLevel = 0;
 
         window.closePwdModal = () => {
@@ -489,13 +485,11 @@
             }
         };
 
-        // 💡 新增：字體大小切換邏輯
         window.toggleFontSize = () => {
             window.fontSizeLevel = (window.fontSizeLevel + 1) % 3;
             const sizeNames = ["標準", "放大", "特大"];
             showToast(`🔍 字體已切換為：${sizeNames[window.fontSizeLevel]}`);
             
-            // 如果畫面上已經有班表，立刻重新渲染套用新字體與高度
             if (window.searchedEmployees.length > 0) {
                 window.renderAllSchedules();
             }
@@ -547,7 +541,6 @@
             if (dropdown && !dropdown.contains(e.target) && e.target !== input) { dropdown.classList.add('hidden'); }
         });
 
-        // 💡 修改：調整 Accordion 高度限制以容納較長的列表
         window.toggleAcc = (id, forceState = null) => {
             const el = document.getElementById(id);
             const icon = document.getElementById('icon-' + id);
@@ -667,19 +660,17 @@
         window.removeEmpFromQueue = (empName, event) => { event.stopPropagation(); window.searchedEmployees = window.searchedEmployees.filter(item => item.emp.name !== empName); window.renderAllSchedules(); };
         window.toggleEmpCollapse = (empName) => { const item = window.searchedEmployees.find(item => item.emp.name === empName); if (item) { item.isCollapsed = !item.isCollapsed; window.renderAllSchedules(); } };
 
-        // 💡 修改：依據字體等級 (fontSizeLevel) 動態套用排版 Class
         window.renderAllSchedules = () => {
             const container = document.getElementById('multiScheduleContainer'); container.innerHTML = '';
             if(window.searchedEmployees.length === 0) return;
 
-            // 定義三個字體等級的 CSS 設定 (文字大小、高度)
             let fsClass = "text-[11px]"; let cHeight = "h-24"; let dSize = "text-xs"; let wMinH = "min-h-[44px]";
             let ntSize = "text-[9px]"; let ntTgtSize = "text-[11px]"; let ntBdgeSize = "text-[10px]";
 
-            if (window.fontSizeLevel === 1) { // 放大
+            if (window.fontSizeLevel === 1) { 
                 fsClass = "text-sm"; cHeight = "h-28"; dSize = "text-sm"; wMinH = "min-h-[52px]";
                 ntSize = "text-[10px]"; ntTgtSize = "text-xs"; ntBdgeSize = "text-[11px]";
-            } else if (window.fontSizeLevel === 2) { // 特大
+            } else if (window.fontSizeLevel === 2) { 
                 fsClass = "text-base"; cHeight = "h-32"; dSize = "text-base"; wMinH = "min-h-[60px]";
                 ntSize = "text-[11px]"; ntTgtSize = "text-sm"; ntBdgeSize = "text-xs";
             }
@@ -833,7 +824,6 @@
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
 
-        // 💡 修改：唯讀模式也套用字體動態調整
         window.openReadOnlySchedule = (empName) => {
             const emp = window.allEmployees.find(e => e.name === empName);
             if (!emp) return;
@@ -1365,10 +1355,15 @@
             showToast(`✅ 已載入 ${emp.name} 的班表`);
         };
 
+        // 💡 針對 Android 嚴格審查標準修正的匯出邏輯
         window.generateICS = () => {
             if (!window.exportTargetEmp) return;
             const emp = window.exportTargetEmp; const sid = document.getElementById('exportCloudSchedules').value;
             const data = window.cloudSchedulesDB[sid]; const year = data.year; const month = data.month; const daysInMonth = new Date(year, month, 0).getDate();
+
+            // 💡 新增：產生符合國際標準的建立時間戳記 (DTSTAMP)
+            const now = new Date();
+            const stampStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
             let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MRT Shift Swap App//TW\r\nCALSCALE:GREGORIAN\r\n";
 
@@ -1379,8 +1374,13 @@
                 if (!shift || shift.isMissing || shift.isLeave || shift.display === 'X' || (shiftInfo && shiftInfo.isRClass)) continue;
 
                 const mm = month.toString().padStart(2, '0'); const dd = d.toString().padStart(2, '0'); const dateStr = `${year}${mm}${dd}`;
+                
+                // 💡 新增：為每天的班別產生獨一無二的 UID
+                const uid = `mrt-${year}${mm}${dd}-${encodeURIComponent(emp.name)}@mrtschedule`;
 
                 icsContent += "BEGIN:VEVENT\r\n";
+                icsContent += `UID:${uid}\r\n`;
+                icsContent += `DTSTAMP:${stampStr}\r\n`;
                 icsContent += `SUMMARY:${shift.display}\r\n`;
                 icsContent += `DESCRIPTION:捷運班表 (${emp.name})\r\n`;
                 
@@ -1397,18 +1397,24 @@
                     }
                     let endMm = endM.toString().padStart(2, '0'); let endDd = endD.toString().padStart(2, '0');
                     let dtEndStr = `${endY}${endMm}${endDd}T${endParts[0]}${endParts[1]}00`;
-                    icsContent += `DTSTART;TZID=Asia/Taipei:${dtStartStr}\r\n`; icsContent += `DTEND;TZID=Asia/Taipei:${dtEndStr}\r\n`;
+                    
+                    // 💡 修正：移除 TZID，改用「浮動本地時間」，Android 就不會因為找不到時區規則而報錯
+                    icsContent += `DTSTART:${dtStartStr}\r\n`; 
+                    icsContent += `DTEND:${dtEndStr}\r\n`;
                 } else {
                     let nextDay = new Date(year, month - 1, d + 1);
                     let endMm = (nextDay.getMonth() + 1).toString().padStart(2, '0'); let endDd = nextDay.getDate().toString().padStart(2, '0');
                     let endDateStr = `${nextDay.getFullYear()}${endMm}${endDd}`;
-                    icsContent += `SUMMARY:${shift.display} (未設定時間)\r\n`; icsContent += `DTSTART;VALUE=DATE:${dateStr}\r\n`; icsContent += `DTEND;VALUE=DATE:${endDateStr}\r\n`;
+                    icsContent += `SUMMARY:${shift.display} (未設定時間)\r\n`; 
+                    icsContent += `DTSTART;VALUE=DATE:${dateStr}\r\n`; 
+                    icsContent += `DTEND;VALUE=DATE:${endDateStr}\r\n`;
                 }
                 icsContent += "END:VEVENT\r\n";
             }
             icsContent += "END:VCALENDAR\r\n";
 
-            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), icsContent], { type: 'text/calendar;charset=utf-8' });
+            // 💡 修正：拿掉 Uint8Array 的 BOM，避免部分 Android 系統誤判為亂碼
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
             const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
             link.download = `${year}年${month}月_${emp.id !== '無' ? emp.id : ''}${emp.name}_班表.ics`;
             document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast("🎉 行事曆檔案匯出成功！");
