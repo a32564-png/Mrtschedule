@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>換班小幫手 v2.9</title>
+    <title>換班小幫手 v3.0</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1b759a">
@@ -48,9 +48,8 @@
             <div class="p-3 flex items-center justify-between text-white cursor-default">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v2.9)</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v3.0)</h1>
                 </div>
-                <!-- 💡 字體大小切換按鈕 -->
                 <button onclick="window.toggleFontSize()" class="p-1.5 bg-white/20 rounded-lg active:scale-90 transition flex items-center justify-center shadow-sm border border-white/10">
                     <span class="font-black text-sm tracking-wider px-1">Aa</span>
                 </button>
@@ -105,11 +104,30 @@
                                 <button onclick="window.executeShiftQuery()" class="bg-gray-800 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-black active:scale-95 transition text-sm font-bold shadow-md">找人</button>
                             </div>
                             <div id="queryResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
-                            
-                            <div id="pinnedTagsContainer" class="pt-3 mt-3 border-t border-gray-100 hidden">
-                                <p class="text-[10px] text-gray-400 mb-2 font-bold uppercase tracking-widest">📌 已釘選</p>
-                                <div id="pinnedTags" class="flex flex-col gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 💡 依時段找卡 (新增區塊) -->
+                <div class="border-b border-gray-100 bg-white">
+                    <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-find-time')">
+                        <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>⏱️</span> 依時段找卡</label>
+                        <svg id="icon-acc-find-time" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div id="acc-find-time" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
+                        <div class="px-4 pb-5 pt-2">
+                            <div class="flex items-center justify-between gap-1 w-full">
+                                <select id="queryTimeDate" class="border border-gray-300 rounded-xl px-1 py-3 w-[75px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
+                                <select id="queryTimeStart" onchange="window.updateTimeEndOptions()" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center">
+                                    <!-- JS 動態生成 -->
+                                </select>
+                                <span class="font-black text-gray-400 text-xs shrink-0">~</span>
+                                <select id="queryTimeEnd" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center">
+                                    <!-- JS 動態生成 -->
+                                </select>
+                                <button onclick="window.executeTimeSlotQuery()" class="bg-[#1b759a] text-white w-[60px] shrink-0 py-3 rounded-xl hover:bg-blue-700 active:scale-95 transition text-[13px] font-bold shadow-md">找卡</button>
                             </div>
+                            <div id="queryTimeResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
                         </div>
                     </div>
                 </div>
@@ -129,13 +147,21 @@
                                     <option value="午">午班</option>
                                     <option value="夜">夜班</option>
                                 </select>
-                                <button onclick="window.executeRQuery()" class="bg-green-600 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-green-700 active:scale-95 transition text-sm font-bold shadow-md">找休假</button>
+                                <button onclick="window.executeRQuery()" class="bg-sky-600 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-sky-700 active:scale-95 transition text-sm font-bold shadow-md">找休假</button>
                             </div>
                             <div id="queryRResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
                         </div>
                     </div>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- 💡 獨立的釘選公佈欄 -->
+        <div id="pinnedTagsContainer" class="px-3 mt-4 hidden relative z-20">
+            <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
+                <p class="text-[11px] text-gray-400 mb-3 font-bold uppercase tracking-widest flex items-center gap-1"><span>📌</span> 釘選公佈欄</p>
+                <div id="pinnedTags" class="flex flex-col gap-2"></div>
             </div>
         </div>
 
@@ -164,7 +190,8 @@
                 </div>
                 <div id="exportHelpBody" class="px-4 overflow-hidden transition-all duration-300 bg-white" style="max-height: 0px; opacity: 0;">
                     <div class="py-4 space-y-4 text-sm text-gray-600 leading-relaxed font-medium">
-                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶</span></p><p>點擊下方「匯出檔案」後，手機會跳出下載提示。下載完成後點開它，系統會問<span class="text-blue-600 font-bold">「要加入行事曆嗎？」</span>，點擊<span class="font-bold text-gray-800">「加入」</span>就瞬間完成囉！</p></div>
+                        <!-- 💡 新增 Safari 建議說明 -->
+                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶 (建議使用 Safari 開啟)</span></p><p>點擊下方「匯出檔案」後，手機會跳出下載提示。下載完成後點開它，系統會問<span class="text-blue-600 font-bold">「要加入行事曆嗎？」</span>，點擊<span class="font-bold text-gray-800">「加入」</span>就瞬間完成囉！</p></div>
                         <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊「匯出檔案」下載後，直接點開該檔案，<span class="text-blue-600 font-bold">Google 日曆</span>就會自動啟動並問你要不要匯入，按下<span class="font-bold text-gray-800">「確認」</span>即可！如果顯示無法開啟，請使用「Email 寄給自己」的方式在 Gmail 內點開即可成功匯入。</p></div>
                         <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs"><p class="font-bold text-yellow-800 mb-1">💡 溫馨小建議</p><p class="text-yellow-700">怕行事曆跟私事混在一起太亂嗎？建議先在手機日曆裡新增一個叫做<span class="font-bold">「捷運班表」</span>的分類，匯入時選它。以後不想看，只要取消打勾畫面就乾淨囉！</p></div>
                     </div>
@@ -217,7 +244,6 @@
                     <span class="text-xl">⚙️</span>
                     <h1 class="text-lg font-black tracking-wide">任務卡設定</h1>
                 </div>
-                <!-- 鎖定按鈕 -->
                 <button onclick="window.toggleAdminLock()" class="text-xl active:scale-90 transition p-1 hover:bg-white/20 rounded-lg" id="adminLockIcon">🔒</button>
             </div>
         </div>
@@ -261,9 +287,9 @@
             <div class="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6">
                 <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition rounded-2xl" onclick="window.toggleAcc('acc-task-settings')">
                     <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>⚙️</span> 任務卡查詢與設定</label>
-                    <svg id="icon-acc-task-settings" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg id="icon-acc-task-settings" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
-                <div id="acc-task-settings" class="transition-all duration-300" style="max-height: 2000px; opacity: 1; overflow: visible;">
+                <div id="acc-task-settings" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
                     <div class="px-4 pb-5 pt-3 border-t border-gray-100">
                         
                         <div class="flex justify-between items-center mb-3">
@@ -326,7 +352,6 @@
         </button>
     </nav>
 
-    <!-- 💡 密碼輸入專屬 Modal -->
     <div id="pwdModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">系統管理員解鎖</h3>
@@ -341,7 +366,6 @@
         </div>
     </div>
 
-    <!-- 唯讀班表檢視 Modal (Read-Only) -->
     <div id="readOnlyScheduleModal" class="hidden fixed inset-0 bg-black/70 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-modal flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-5 bg-[#f4f8fb] border-b border-blue-100">
@@ -353,6 +377,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
+                    <!-- 💡 此處釘選按鈕將整個月班表加入駐列 -->
                     <button id="roModalPinBtn" class="bg-[#1b759a] text-white px-3 py-2 rounded-xl text-xs font-black shadow-md active:scale-95 transition flex items-center gap-1">
                         📌 加入駐列
                     </button>
@@ -370,7 +395,6 @@
         </div>
     </div>
 
-    <!-- 詳細班別與換班 Modal (操作視窗) -->
     <div id="shiftModal" class="hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-modal overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
@@ -386,7 +410,6 @@
         </div>
     </div>
 
-    <!-- 換班防呆確認 Modal -->
     <div id="swapConfirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">確定是這張卡嗎？</h3>
@@ -402,7 +425,6 @@
         </div>
     </div>
 
-    <!-- 刪除確認 Modal -->
     <div id="confirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal">
             <h3 class="text-xl font-black text-red-500 mb-2 flex items-center gap-2">⚠️ <span id="confirmTitle">確認</span></h3>
@@ -420,9 +442,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =========================================================
-        // 🔒 系統管理員設定區 
-        // =========================================================
         const ADMIN_PASSWORD = "28830";
         window.isAdmin = false;
         
@@ -433,6 +452,7 @@
             document.getElementById('adminPwdInput').value = '';
         };
 
+        // 💡 密碼解鎖後的優化：捲動置頂與收合面板
         window.submitPwd = () => {
             const pwd = document.getElementById('adminPwdInput').value;
             if (pwd === ADMIN_PASSWORD) {
@@ -441,6 +461,12 @@
                 window.closePwdModal();
                 window.renderAdminUI();
                 window.renderShiftSettingsList();
+                
+                // 解鎖後自動捲回頂端
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                // 預設將兩個設定面板處於縮小狀態，版面乾淨
+                window.toggleAcc('acc-admin-file', false);
+                window.toggleAcc('acc-task-settings', false);
             } else {
                 showToast("❌ 密碼錯誤", true);
                 document.getElementById('adminPwdInput').value = '';
@@ -494,6 +520,7 @@
                 window.renderAllSchedules();
             }
         };
+
         // =========================================================
 
         const firebaseConfig = {
@@ -514,12 +541,38 @@
         window.allEmployees = [];
         window.cloudSchedulesDB = {};
         window.currentYear = 0; window.currentMonth = 0; window.daysInMonth = 0;
-        window.isPanelOpen = false;
         window.currentUser = null;
         window.searchedEmployees = []; 
         window.personalSwapNotes = {}; 
         window.exportTargetEmp = null; 
         window.selectedPdfFile = null;
+
+        // 💡 依時段找卡：初始化時間選單
+        window.initTimeOptions = () => {
+            const startSel = document.getElementById('queryTimeStart');
+            if(!startSel) return;
+            let startHtml = '';
+            for(let i=4; i<=23; i++) {
+                startHtml += `<option value="${i}">${i} 點</option>`;
+            }
+            startSel.innerHTML = startHtml;
+            window.updateTimeEndOptions();
+        };
+
+        // 💡 依時段找卡：結束時間自動隨開始時間變動，防呆限制
+        window.updateTimeEndOptions = () => {
+            const startSel = document.getElementById('queryTimeStart');
+            const endSel = document.getElementById('queryTimeEnd');
+            if(!startSel || !endSel) return;
+            
+            const startVal = parseInt(startSel.value);
+            let endHtml = '';
+            // 結束時間必須大於開始時間
+            for(let i = startVal + 1; i <= 24; i++) {
+                endHtml += `<option value="${i}">${i} 點</option>`;
+            }
+            endSel.innerHTML = endHtml;
+        };
 
         function showToast(msg, isError = false) {
             const t = document.getElementById('toastMsg'); const c = document.getElementById('toastContent');
@@ -567,6 +620,7 @@
             if (user) {
                 window.currentUser = user;
                 window.renderAdminUI(); 
+                window.initTimeOptions();
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftTypes'), (snap) => {
                     window.customShifts = {}; 
@@ -824,6 +878,25 @@
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
 
+        // 💡 獨立公佈欄：加入釘選卡片邏輯
+        window.addPinTag = (d, empName, shiftDisp, isR, customClasses = null) => {
+            const tid = `pin-${d}-${encodeURIComponent(empName)}`;
+            if (document.getElementById(tid)) return;
+            document.getElementById('pinnedTagsContainer').classList.remove('hidden');
+            
+            // 如果從時段查詢過來，可以直接套用傳進來的客製化顏色
+            let colorClass = isR ? "text-sky-300" : "text-blue-300";
+            if (customClasses && customClasses.nameClass) {
+                colorClass = customClasses.nameClass;
+            }
+
+            const p = document.createElement('div'); p.id = tid; 
+            p.className = "bg-gray-900 border border-gray-700 text-white p-3 rounded-xl flex justify-between items-center shadow-lg animate-modal";
+            p.innerHTML = `<span class="text-xs font-bold tracking-wide">${window.currentMonth}/${d} ｜ <span class="${colorClass}">${empName}</span> ｜ ${shiftDisp}</span><button onclick="this.parentElement.remove(); if(document.getElementById('pinnedTags').children.length===0) document.getElementById('pinnedTagsContainer').classList.add('hidden');" class="text-gray-400 hover:text-white p-1 font-bold bg-gray-800 rounded-lg active:scale-90 transition">✕</button>`;
+            document.getElementById('pinnedTags').appendChild(p); 
+            showToast(`📌 已將 ${empName} 釘選至公佈欄`);
+        };
+
         window.openReadOnlySchedule = (empName) => {
             const emp = window.allEmployees.find(e => e.name === empName);
             if (!emp) return;
@@ -880,20 +953,6 @@
         window.closeReadOnlySchedule = () => {
             document.getElementById('readOnlyScheduleModal').classList.add('hidden');
         };
-
-        window.addPinTag = (d, empName, shiftDisp, isR) => {
-            const tid = `pin-${d}-${encodeURIComponent(empName)}`;
-            if (document.getElementById(tid)) return;
-            document.getElementById('pinnedTagsContainer').classList.remove('hidden');
-            
-            const colorClass = isR ? "text-green-400" : "text-blue-300";
-
-            const p = document.createElement('div'); p.id = tid; p.className = "bg-gray-800 text-white p-3 rounded-xl flex justify-between items-center shadow-lg animate-modal";
-            p.innerHTML = `<span class="text-xs font-bold tracking-wide">${window.currentMonth}/${d} ｜ <span class="${colorClass}">${empName}</span> ｜ ${shiftDisp}</span><button onclick="this.parentElement.remove(); if(document.getElementById('pinnedTags').children.length===0) document.getElementById('pinnedTagsContainer').classList.add('hidden');" class="text-gray-400 hover:text-white p-1 font-bold bg-gray-700 rounded-lg active:scale-90 transition">✕</button>`;
-            document.getElementById('pinnedTags').appendChild(p); 
-            showToast(isR ? `📌 已釘選休假人員：${empName}` : `📌 已釘選 ${empName}`);
-        };
-
 
         window.setSwapNote = async (dateKey, statusStr) => {
             if(!window.currentUser) return;
@@ -974,6 +1033,7 @@
             });
         };
 
+        // 💡 找 R 班：改為淺藍色視覺
         window.executeRQuery = () => {
             const d = document.getElementById('queryRDate').value; 
             const type = document.getElementById('queryRType').value; 
@@ -993,14 +1053,105 @@
             
             list.forEach(e => {
                 const sDisp = e.shifts[d - 1].display;
-                const tag = document.createElement('div'); tag.className = "bg-white border border-green-200 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
+                const tag = document.createElement('div'); tag.className = "bg-sky-50 border border-sky-200 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
                 tag.innerHTML = `
-                    <span class="text-sm font-bold text-gray-700">${window.currentMonth}/${d} ｜ <span class="text-green-600">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
+                    <span class="text-sm font-bold text-sky-900">${window.currentMonth}/${d} ｜ <span class="text-sky-600">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
+                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
                             <span class="text-sm leading-none">📅</span>
                         </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}', true)" class="text-[10px] bg-green-600 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}', true)" class="text-[10px] bg-sky-500 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
+                            📌
+                        </button>
+                    </div>`;
+                res.appendChild(tag);
+            });
+        };
+
+        // 💡 依時段找卡邏輯
+        window.executeTimeSlotQuery = () => {
+            const d = document.getElementById('queryTimeDate').value;
+            const startH = parseInt(document.getElementById('queryTimeStart').value);
+            const endH = parseInt(document.getElementById('queryTimeEnd').value);
+            const res = document.getElementById('queryTimeResults');
+            res.innerHTML = '';
+
+            if (!d || isNaN(startH) || isNaN(endH)) { showToast("⚠️ 請選擇日期與區間", true); return; }
+
+            const startTotalMins = startH * 60;
+            const endTotalMins = endH * 60;
+
+            const list = window.allEmployees.filter(e => {
+                const s = e.shifts[d - 1];
+                if (!s || s.isMissing || s.display === 'X') return false;
+
+                const shiftInfo = window.customShifts[s.display];
+                // 排除 R 班與特殊班型
+                if (!shiftInfo || shiftInfo.isRClass || shiftInfo.isSpecial) return false; 
+
+                if (shiftInfo.startTime) {
+                    const [hh, mm] = shiftInfo.startTime.split(':').map(Number);
+                    const shiftMins = hh * 60 + mm;
+                    // 落於時段區間內 (包含整點)
+                    return shiftMins >= startTotalMins && shiftMins <= endTotalMins;
+                }
+                return false;
+            });
+
+            if (list.length === 0) {
+                res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold py-2">該時段內無人上班，或僅有特殊班型</p>`;
+                return;
+            }
+
+            // 💡 新增：依照地點與名稱完美排序 (松山 -> 新店 -> 七張，再來是 A-Z 與數字自然排序)
+            list.sort((a, b) => {
+                const sA = a.shifts[d - 1].display;
+                const sB = b.shifts[d - 1].display;
+                const locA = (window.customShifts[sA] || {}).location || window.guessLocation(sA, false);
+                const locB = (window.customShifts[sB] || {}).location || window.guessLocation(sB, false);
+
+                // 步驟 1: 地點權重
+                const getLocRank = (loc) => {
+                    if (loc.includes('松山')) return 1;
+                    if (loc.includes('新店')) return 2;
+                    if (loc.includes('七張')) return 3;
+                    return 4;
+                };
+
+                const rankA = getLocRank(locA);
+                const rankB = getLocRank(locB);
+
+                if (rankA !== rankB) return rankA - rankB; // 地點不同的話，依照權重排序
+
+                // 步驟 2 & 3: 相同地點，依照英文字母與數字自然排序 (例如 H1 會排在 H2 前面，H2 會在 H10 前面)
+                return sA.localeCompare(sB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            // 依照卡片地點設定顏色
+            list.forEach(e => {
+                const sDisp = e.shifts[d - 1].display;
+                const shiftInfo = window.customShifts[sDisp];
+                const loc = shiftInfo.location || window.guessLocation(sDisp, false);
+
+                let bgClass = "bg-white"; let textClass = "text-gray-800"; let nameClass = "text-[#1b759a]"; let borderClass = "border-gray-200";
+
+                if (loc.includes('松山')) {
+                    bgClass = "bg-green-100"; textClass = "text-green-900"; nameClass = "text-green-700"; borderClass = "border-green-300";
+                } else if (loc.includes('七張')) {
+                    bgClass = "bg-green-600"; textClass = "text-white"; nameClass = "text-green-100"; borderClass = "border-green-700";
+                } else if (loc.includes('新店')) {
+                    bgClass = "bg-[#1a3a28]"; textClass = "text-gray-100"; nameClass = "text-gray-300"; borderClass = "border-gray-800";
+                }
+
+                const tag = document.createElement('div');
+                tag.className = `${bgClass} ${borderClass} border p-2.5 rounded-xl flex justify-between items-center shadow-sm`;
+                tag.innerHTML = `
+                    <span class="text-sm font-bold ${textClass}">${window.currentMonth}/${d} ｜ <span class="${nameClass}">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white/20 hover:bg-white/30 ${textClass} border border-white/20 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
+                            <span class="text-sm leading-none">📅</span>
+                        </button>
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}', false, {nameClass: '${nameClass}'})" class="text-[10px] bg-black/30 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
                             📌
                         </button>
                     </div>`;
@@ -1303,12 +1454,15 @@
         window.updateDropdowns = () => {
             const dSel = document.getElementById('queryDate'); 
             const rSel = document.getElementById('queryRDate'); 
+            const tSel = document.getElementById('queryTimeDate');
             dSel.innerHTML = '<option value="">選擇日期</option>';
             rSel.innerHTML = '<option value="">選擇日期</option>';
+            if(tSel) tSel.innerHTML = '<option value="">選擇日期</option>';
             if(window.daysInMonth > 0) {
                 for (let i = 1; i <= window.daysInMonth; i++) {
                     dSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
                     rSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
+                    if(tSel) tSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
                 }
             }
         };
@@ -1355,13 +1509,11 @@
             showToast(`✅ 已載入 ${emp.name} 的班表`);
         };
 
-        // 💡 針對 Android 嚴格審查標準修正的匯出邏輯
         window.generateICS = () => {
             if (!window.exportTargetEmp) return;
             const emp = window.exportTargetEmp; const sid = document.getElementById('exportCloudSchedules').value;
             const data = window.cloudSchedulesDB[sid]; const year = data.year; const month = data.month; const daysInMonth = new Date(year, month, 0).getDate();
 
-            // 💡 新增：產生符合國際標準的建立時間戳記 (DTSTAMP)
             const now = new Date();
             const stampStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
@@ -1374,8 +1526,6 @@
                 if (!shift || shift.isMissing || shift.isLeave || shift.display === 'X' || (shiftInfo && shiftInfo.isRClass)) continue;
 
                 const mm = month.toString().padStart(2, '0'); const dd = d.toString().padStart(2, '0'); const dateStr = `${year}${mm}${dd}`;
-                
-                // 💡 新增：為每天的班別產生獨一無二的 UID
                 const uid = `mrt-${year}${mm}${dd}-${encodeURIComponent(emp.name)}@mrtschedule`;
 
                 icsContent += "BEGIN:VEVENT\r\n";
@@ -1398,7 +1548,6 @@
                     let endMm = endM.toString().padStart(2, '0'); let endDd = endD.toString().padStart(2, '0');
                     let dtEndStr = `${endY}${endMm}${endDd}T${endParts[0]}${endParts[1]}00`;
                     
-                    // 💡 修正：移除 TZID，改用「浮動本地時間」，Android 就不會因為找不到時區規則而報錯
                     icsContent += `DTSTART:${dtStartStr}\r\n`; 
                     icsContent += `DTEND:${dtEndStr}\r\n`;
                 } else {
@@ -1413,7 +1562,6 @@
             }
             icsContent += "END:VCALENDAR\r\n";
 
-            // 💡 修正：拿掉 Uint8Array 的 BOM，避免部分 Android 系統誤判為亂碼
             const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
             const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
             link.download = `${year}年${month}月_${emp.id !== '無' ? emp.id : ''}${emp.name}_班表.ics`;
