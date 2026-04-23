@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>換班小幫手 v3.0</title>
+    <title>換班小幫手 v3.1</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1b759a">
@@ -28,27 +28,33 @@
         .custom-scrollbar::-webkit-scrollbar { display: block; width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        @keyframes pulse-border { 0% { border-color: rgba(234, 179, 8, 1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(234, 179, 8, 0); } 100% { border-color: rgba(234, 179, 8, 1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); } }
+        .animate-warning-pulse { animation: pulse-border 2s infinite; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased pb-28">
 
     <div id="loadingOverlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="w-12 h-12 border-4 border-blue-100 border-t-[#1b759a] rounded-full animate-spin mb-4"></div>
-        <p class="text-[#1b759a] font-bold animate-pulse">連線至雲端系統...</p>
+        <div id="loadingSpinner" class="w-12 h-12 border-4 border-blue-100 border-t-[#1b759a] rounded-full animate-spin mb-4"></div>
+        <p id="loadingText" class="text-[#1b759a] font-bold animate-pulse">連線至雲端系統...</p>
+        
+        <div id="loadingError" class="hidden flex-col items-center mt-4 px-6 w-full max-w-sm">
+            <p id="loadingErrorMsg" class="text-red-500 text-xs text-center font-bold bg-red-50 p-3 rounded-xl border border-red-200 break-words w-full"></p>
+            </div>
     </div>
 
     <div id="toastMsg" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[110] hidden flex-col items-center w-11/12 max-w-sm pointer-events-none">
         <div id="toastContent" class="bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-center w-full">提示訊息</div>
     </div>
 
-    <!-- ========== 視圖 1：班表作業 ========== -->
     <div id="view-schedule" class="block">
         
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-50">
             <div class="p-3 flex items-center justify-between text-white cursor-default">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v3.0)</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v3.1)</h1>
                 </div>
                 <button onclick="window.toggleFontSize()" class="p-1.5 bg-white/20 rounded-lg active:scale-90 transition flex items-center justify-center shadow-sm border border-white/10">
                     <span class="font-black text-sm tracking-wider px-1">Aa</span>
@@ -108,7 +114,6 @@
                     </div>
                 </div>
 
-                <!-- 💡 依時段找卡 (新增區塊) -->
                 <div class="border-b border-gray-100 bg-white">
                     <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-find-time')">
                         <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>⏱️</span> 依時段找卡</label>
@@ -119,11 +124,9 @@
                             <div class="flex items-center justify-between gap-1 w-full">
                                 <select id="queryTimeDate" class="border border-gray-300 rounded-xl px-1 py-3 w-[75px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
                                 <select id="queryTimeStart" onchange="window.updateTimeEndOptions()" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center">
-                                    <!-- JS 動態生成 -->
                                 </select>
                                 <span class="font-black text-gray-400 text-xs shrink-0">~</span>
                                 <select id="queryTimeEnd" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center">
-                                    <!-- JS 動態生成 -->
                                 </select>
                                 <button onclick="window.executeTimeSlotQuery()" class="bg-[#1b759a] text-white w-[60px] shrink-0 py-3 rounded-xl hover:bg-blue-700 active:scale-95 transition text-[13px] font-bold shadow-md">找卡</button>
                             </div>
@@ -157,10 +160,11 @@
             </div>
         </div>
 
-        <!-- 💡 獨立的釘選公佈欄 -->
         <div id="pinnedTagsContainer" class="px-3 mt-4 hidden relative z-20">
             <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
-                <p class="text-[11px] text-gray-400 mb-3 font-bold uppercase tracking-widest flex items-center gap-1"><span>📌</span> 釘選公佈欄</p>
+                <div class="mb-3">
+                    <p class="text-[11px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1"><span>📌</span> 釘選口袋名單 <span id="pinMonthDisplay" class="text-gray-500 ml-1"></span></p>
+                </div>
                 <div id="pinnedTags" class="flex flex-col gap-2"></div>
             </div>
         </div>
@@ -168,7 +172,6 @@
         <div id="multiScheduleContainer" class="max-w-md mx-auto mt-4 space-y-4 px-3 pb-6 relative z-10"></div>
     </div>
 
-    <!-- ========== 視圖 2：班表匯出 ========== -->
     <div id="view-export" class="hidden">
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-20">
             <div class="p-3 flex items-center gap-2 text-white cursor-default">
@@ -190,7 +193,6 @@
                 </div>
                 <div id="exportHelpBody" class="px-4 overflow-hidden transition-all duration-300 bg-white" style="max-height: 0px; opacity: 0;">
                     <div class="py-4 space-y-4 text-sm text-gray-600 leading-relaxed font-medium">
-                        <!-- 💡 新增 Safari 建議說明 -->
                         <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶 (建議使用 Safari 開啟)</span></p><p>點擊下方「匯出檔案」後，手機會跳出下載提示。下載完成後點開它，系統會問<span class="text-blue-600 font-bold">「要加入行事曆嗎？」</span>，點擊<span class="font-bold text-gray-800">「加入」</span>就瞬間完成囉！</p></div>
                         <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊「匯出檔案」下載後，直接點開該檔案，<span class="text-blue-600 font-bold">Google 日曆</span>就會自動啟動並問你要不要匯入，按下<span class="font-bold text-gray-800">「確認」</span>即可！如果顯示無法開啟，請使用「Email 寄給自己」的方式在 Gmail 內點開即可成功匯入。</p></div>
                         <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs"><p class="font-bold text-yellow-800 mb-1">💡 溫馨小建議</p><p class="text-yellow-700">怕行事曆跟私事混在一起太亂嗎？建議先在手機日曆裡新增一個叫做<span class="font-bold">「捷運班表」</span>的分類，匯入時選它。以後不想看，只要取消打勾畫面就乾淨囉！</p></div>
@@ -236,7 +238,6 @@
         </div>
     </div>
 
-    <!-- ========== 視圖 3：任務庫設定 ========== -->
     <div id="view-settings" class="hidden">
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-20">
             <div class="p-3 flex justify-between items-center text-white cursor-default">
@@ -339,7 +340,6 @@
         </div>
     </div>
 
-    <!-- 底部導覽列 -->
     <nav class="fixed bottom-0 w-full max-w-md left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md border-t border-gray-200 flex justify-around items-stretch pb-safe z-50 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
         <button id="btn-tab-schedule" onclick="window.switchTab('schedule')" class="flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold">
             <span class="text-[22px] mb-0.5">📅</span><span class="text-[10px]">班表作業</span>
@@ -377,7 +377,6 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <!-- 💡 此處釘選按鈕將整個月班表加入駐列 -->
                     <button id="roModalPinBtn" class="bg-[#1b759a] text-white px-3 py-2 rounded-xl text-xs font-black shadow-md active:scale-95 transition flex items-center gap-1">
                         📌 加入駐列
                     </button>
@@ -436,7 +435,6 @@
         </div>
     </div>
 
-    <!-- Firebase 邏輯模組 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -452,7 +450,6 @@
             document.getElementById('adminPwdInput').value = '';
         };
 
-        // 💡 密碼解鎖後的優化：捲動置頂與收合面板
         window.submitPwd = () => {
             const pwd = document.getElementById('adminPwdInput').value;
             if (pwd === ADMIN_PASSWORD) {
@@ -462,9 +459,7 @@
                 window.renderAdminUI();
                 window.renderShiftSettingsList();
                 
-                // 解鎖後自動捲回頂端
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                // 預設將兩個設定面板處於縮小狀態，版面乾淨
                 window.toggleAcc('acc-admin-file', false);
                 window.toggleAcc('acc-task-settings', false);
             } else {
@@ -521,7 +516,24 @@
             }
         };
 
-        // =========================================================
+        // 💡 連線錯誤處理函式
+        window.showConnectionError = (errMessage) => {
+            const spinner = document.getElementById('loadingSpinner');
+            const text = document.getElementById('loadingText');
+            const errorArea = document.getElementById('loadingError');
+            const errorMsg = document.getElementById('loadingErrorMsg');
+            
+            if(spinner) spinner.classList.add('hidden');
+            if(text) { text.innerText = "⚠️ 系統連線失敗"; text.classList.remove('animate-pulse', 'text-[#1b759a]'); text.classList.add('text-red-600', 'text-xl', 'mb-2'); }
+            if(errorArea) errorArea.classList.remove('hidden');
+            if(errorMsg) errorMsg.innerText = errMessage;
+            
+            console.error("🔥 Firebase 連線除錯: ", errMessage);
+        };
+
+        let connTimeout = setTimeout(() => {
+            window.showConnectionError("連線逾時 (超過 10 秒)。\n\n可能原因：\n1. 網路不穩\n2. 瀏覽器擴充功能阻擋\n3. 內網封鎖了 Firebase 網域");
+        }, 10000);
 
         const firebaseConfig = {
             apiKey: "AIzaSyDoguq1z7qldw36my7_Wnyc_0vlVbMZTww",
@@ -544,10 +556,10 @@
         window.currentUser = null;
         window.searchedEmployees = []; 
         window.personalSwapNotes = {}; 
+        window.userPinnedTags = {}; 
         window.exportTargetEmp = null; 
         window.selectedPdfFile = null;
 
-        // 💡 依時段找卡：初始化時間選單
         window.initTimeOptions = () => {
             const startSel = document.getElementById('queryTimeStart');
             if(!startSel) return;
@@ -559,7 +571,6 @@
             window.updateTimeEndOptions();
         };
 
-        // 💡 依時段找卡：結束時間自動隨開始時間變動，防呆限制
         window.updateTimeEndOptions = () => {
             const startSel = document.getElementById('queryTimeStart');
             const endSel = document.getElementById('queryTimeEnd');
@@ -567,7 +578,6 @@
             
             const startVal = parseInt(startSel.value);
             let endHtml = '';
-            // 結束時間必須大於開始時間
             for(let i = startVal + 1; i <= 24; i++) {
                 endHtml += `<option value="${i}">${i} 點</option>`;
             }
@@ -623,6 +633,7 @@
                 window.initTimeOptions();
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftTypes'), (snap) => {
+                    clearTimeout(connTimeout);
                     window.customShifts = {}; 
                     snap.forEach(d => {
                         const data = d.data();
@@ -638,6 +649,9 @@
                     window.renderShiftSettingsList(); window.updateDropdowns();
                     document.getElementById('loadingOverlay').classList.add('opacity-0');
                     setTimeout(()=> document.getElementById('loadingOverlay').classList.add('hidden'), 500);
+                }, (error) => {
+                    clearTimeout(connTimeout);
+                    window.showConnectionError(`[資料庫讀取拒絕/失敗]\n代碼: ${error.code}\n訊息: ${error.message}`);
                 });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'schedules'), (snap) => {
@@ -660,13 +674,26 @@
                         const opt = `<option value="${d.id}">${d.data().year}年 ${d.data().month}月 班表</option>`;
                         mngSel.innerHTML += opt; mainSel.innerHTML += opt; expSel.innerHTML += opt;
                     });
-                });
+                }, (error) => { console.error("班表清單讀取失敗", error); });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'swapNotes'), (snap) => {
                     window.personalSwapNotes = {}; snap.forEach(d => window.personalSwapNotes[d.id] = d.data());
                     if (window.searchedEmployees.length > 0) window.renderAllSchedules();
-                });
-            } else { signInAnonymously(auth); }
+                    window.renderPinnedTags();
+                }, (error) => { console.error("便利貼讀取失敗", error); });
+
+                onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'pinnedTags'), (snap) => {
+                    window.userPinnedTags = {}; 
+                    snap.forEach(d => window.userPinnedTags[d.id] = d.data());
+                    window.renderPinnedTags();
+                }, (error) => { console.error("釘選名單讀取失敗", error); });
+
+            } else { 
+                signInAnonymously(auth).catch((error) => {
+                    clearTimeout(connTimeout);
+                    window.showConnectionError(`[登入失敗]\n代碼: ${error.code}\n訊息: ${error.message}\n(註: 無痕模式可能阻擋匿名登入)`);
+                }); 
+            }
         });
 
         window.loadMainSchedule = () => {
@@ -679,6 +706,8 @@
             }).filter(Boolean);
             
             window.updateDropdowns(); window.renderAllSchedules();
+            window.renderPinnedTags();
+
             showToast(`✅ 已載入 ${data.year}年${data.month}月 班表！`); 
             
             document.getElementById('actionSectionsContainer').classList.remove('hidden');
@@ -878,81 +907,120 @@
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
 
-        // 💡 獨立公佈欄：加入釘選卡片邏輯
-        window.addPinTag = (d, empName, shiftDisp, isR, customClasses = null) => {
-            const tid = `pin-${d}-${encodeURIComponent(empName)}`;
-            if (document.getElementById(tid)) return;
-            document.getElementById('pinnedTagsContainer').classList.remove('hidden');
-            
-            // 如果從時段查詢過來，可以直接套用傳進來的客製化顏色
-            let colorClass = isR ? "text-sky-300" : "text-blue-300";
-            if (customClasses && customClasses.nameClass) {
-                colorClass = customClasses.nameClass;
-            }
+        // ==========================================
+        // 💡 釘選公佈欄核心邏輯
+        // ==========================================
 
-            const p = document.createElement('div'); p.id = tid; 
-            p.className = "bg-gray-900 border border-gray-700 text-white p-3 rounded-xl flex justify-between items-center shadow-lg animate-modal";
-            p.innerHTML = `<span class="text-xs font-bold tracking-wide">${window.currentMonth}/${d} ｜ <span class="${colorClass}">${empName}</span> ｜ ${shiftDisp}</span><button onclick="this.parentElement.remove(); if(document.getElementById('pinnedTags').children.length===0) document.getElementById('pinnedTagsContainer').classList.add('hidden');" class="text-gray-400 hover:text-white p-1 font-bold bg-gray-800 rounded-lg active:scale-90 transition">✕</button>`;
-            document.getElementById('pinnedTags').appendChild(p); 
-            showToast(`📌 已將 ${empName} 釘選至公佈欄`);
+        window.addPinTag = async (d, empName, currentShift) => {
+            if(!window.currentUser || !window.currentYear) return;
+            const docId = `${window.currentYear}-${window.currentMonth}-${d}-${empName}`;
+            await setDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId), {
+                year: window.currentYear, month: window.currentMonth, date: d, empName: empName, acknowledgedShift: currentShift
+            });
+            showToast(`📌 已將 ${empName} 釘選至雲端名單`);
+        };
+
+        window.removePinTag = async (docId) => {
+            if(!window.currentUser) return;
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId));
+        };
+
+        window.openPinWarningModal = (docId, d, empName, oldShift, newShift) => {
+            document.getElementById('pinWarningDate').innerText = `${window.currentMonth}/${d}`;
+            document.getElementById('pinWarningName').innerText = empName;
+            document.getElementById('pinWarningOldShift').innerText = oldShift;
+            document.getElementById('pinWarningNewShift').innerText = newShift;
+            
+            const btn = document.getElementById('pinWarningConfirmBtn'); const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.onclick = async () => {
+                await setDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId), { acknowledgedShift: newShift }, { merge: true });
+                document.getElementById('pinWarningModal').classList.add('hidden'); showToast("✅ 已確認並更新釘選名單");
+            };
+            document.getElementById('pinWarningModal').classList.remove('hidden');
+        };
+        window.closePinWarningModal = () => document.getElementById('pinWarningModal').classList.add('hidden');
+
+        window.renderPinnedTags = () => {
+            const container = document.getElementById('pinnedTagsContainer'); const listEl = document.getElementById('pinnedTags'); const monthDisplay = document.getElementById('pinMonthDisplay');
+            listEl.innerHTML = '';
+            if(!window.currentYear || !window.currentMonth) { container.classList.add('hidden'); return; }
+
+            const currentPins = Object.entries(window.userPinnedTags).filter(([docId, data]) => { return data.year === window.currentYear && data.month === window.currentMonth; });
+            if (currentPins.length === 0) { container.classList.add('hidden'); return; }
+
+            monthDisplay.innerText = `(${window.currentMonth}月份)`; container.classList.remove('hidden');
+
+            currentPins.forEach(([docId, data]) => {
+                const emp = window.allEmployees.find(e => e.name === data.empName);
+                let liveShift = null; let isMissing = true;
+                if (emp && emp.shifts[data.date - 1]) { liveShift = emp.shifts[data.date - 1].display; isMissing = emp.shifts[data.date - 1].isMissing; }
+
+                let showWarning = false; let displayShift = data.acknowledgedShift;
+                if (!isMissing && liveShift !== null && liveShift !== data.acknowledgedShift) { showWarning = true; } 
+                else if (liveShift === null || isMissing) { displayShift = "查無此人/沒班"; if(data.acknowledgedShift !== "查無此人/沒班") showWarning = true; }
+
+                const dateKey = `${window.currentYear}-${window.currentMonth}-${data.date}-${data.empName}`; const note = window.personalSwapNotes[dateKey];
+                
+                let bgClass = "bg-gray-800"; let borderClass = "border-gray-700"; let statusHtml = ""; let nameColor = "text-blue-300";
+
+                if (note) {
+                    const tName = note.targetId || note.targetName;
+                    if (note.status === 'green') { bgClass = "bg-green-900"; borderClass = "border-green-700"; nameColor = "text-green-200"; statusHtml = `<span class="text-[10px] text-green-300 mt-0.5 inline-block font-bold">✅ 已換為 <span class="text-white">${note.targetShift}</span> (與 ${tName})</span>`; } 
+                    else if (note.status === 'yellow') { bgClass = "bg-yellow-900"; borderClass = "border-yellow-700"; nameColor = "text-yellow-200"; statusHtml = `<span class="text-[10px] text-yellow-300 mt-0.5 inline-block font-bold">⏳ 詢問中 <span class="text-white">${note.targetShift}</span> (對象: ${tName})</span>`; } 
+                    else if (note.status === 'red') { bgClass = "bg-red-950"; borderClass = "border-red-800"; nameColor = "text-red-300"; statusHtml = `<span class="text-[10px] text-red-400 mt-0.5 inline-block font-bold">🔴 需處理此卡</span>`; }
+                } else {
+                    const sInfo = window.customShifts[displayShift]; if (sInfo && sInfo.isRClass) { nameColor = "text-sky-300"; }
+                }
+
+                if (showWarning) {
+                    borderClass += " border-2 border-yellow-500 animate-warning-pulse";
+                    displayShift = `<span class="line-through text-gray-400 text-[10px]">${data.acknowledgedShift}</span> <span class="text-yellow-400 font-black">${liveShift}</span>`;
+                }
+
+                const item = document.createElement('div');
+                item.className = `${bgClass} border ${borderClass} text-white p-3 rounded-xl flex justify-between items-center shadow-lg transition-colors duration-300`;
+                
+                let warningBtnHtml = showWarning ? `<button onclick="window.openPinWarningModal('${docId}', ${data.date}, '${data.empName}', '${data.acknowledgedShift}', '${liveShift}')" class="bg-yellow-500 hover:bg-yellow-400 text-yellow-900 rounded-lg px-2 py-1.5 text-xs font-black shadow active:scale-90 transition animate-bounce">⚠️ 變動</button>` : '';
+
+                item.innerHTML = `
+                    <div class="flex-1 flex flex-col justify-center">
+                        <div class="text-sm font-bold tracking-wide leading-tight">
+                            ${window.currentMonth}/${data.date} ｜ <span class="${nameColor}">${data.empName}</span> ｜ ${displayShift}
+                        </div>
+                        ${statusHtml}
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                        ${warningBtnHtml}
+                        <button onclick="window.openReadOnlySchedule('${data.empName}')" class="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg text-sm active:scale-90 transition border border-white/10">📅</button>
+                        <button onclick="window.removePinTag('${docId}')" class="bg-black/30 hover:bg-black/50 p-1.5 rounded-lg text-sm active:scale-90 transition text-gray-400 hover:text-white">✕</button>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
         };
 
         window.openReadOnlySchedule = (empName) => {
             const emp = window.allEmployees.find(e => e.name === empName);
-            if (!emp) return;
-
+            if (!emp) { showToast("❌ 當前月份查無此人", true); return; }
             document.getElementById('roModalTitle').innerText = `${emp.id !== '無' ? emp.id + ' ' : ''}${emp.name}`;
             const pinBtn = document.getElementById('roModalPinBtn');
-            pinBtn.onclick = () => { 
-                window.addToQueueByEmp(emp); 
-                window.closeReadOnlySchedule();
-            };
-
-            const grid = document.getElementById('roModalGrid');
-            grid.innerHTML = '';
-            
-            let fsClass = "text-[11px]"; let cHeight = "h-20"; let dSize = "text-[10px]"; let wMinH = "min-h-[40px]";
-            if (window.fontSizeLevel === 1) { fsClass = "text-sm"; cHeight = "h-24"; dSize = "text-xs"; wMinH = "min-h-[48px]"; } 
-            else if (window.fontSizeLevel === 2) { fsClass = "text-base"; cHeight = "h-28"; dSize = "text-sm"; wMinH = "min-h-[56px]"; }
-
+            pinBtn.onclick = () => { window.addToQueueByEmp(emp); window.closeReadOnlySchedule(); };
+            const grid = document.getElementById('roModalGrid'); grid.innerHTML = '';
             const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
-            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 ${cHeight} opacity-30"></div>`;
-
+            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 h-20 opacity-30"></div>`;
             for (let d = 1; d <= window.daysInMonth; d++) {
                 const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
-                const dateKey = `${window.currentYear}-${window.currentMonth}-${d}-${emp.name}`;
-                const note = window.personalSwapNotes[dateKey];
-
                 let cellBg = "bg-white"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
-                let displayHtml = `<div class="font-black ${fsClass}">${s.isMissing ? '未確認' : s.display}</div>`;
-                
-                let isLeaveDisplay = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
-
+                let displayHtml = `<div class="font-black text-[11px]">${s.isMissing ? '未確認' : s.display}</div>`;
                 if (s.isMissing) { mainColor = "text-gray-400"; borderStyle = "border-dashed border-gray-300 bg-gray-50"; }
                 else if (s.isHolidayWork) { mainColor = "text-orange-600"; borderStyle = "border-orange-500 bg-orange-50"; }
-                else if (isLeaveDisplay) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
-
-                if (note) {
-                    if (note.status === 'red') { cellBg = "bg-red-50"; displayHtml += `<div class="text-[9px] text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1 leading-tight">需處理</div>`; } 
-                    else if (note.status === 'yellow') {
-                        cellBg = "bg-yellow-50"; borderStyle = "border-yellow-400";
-                        const displayTarget = note.targetId || note.targetName;
-                        displayHtml += `<div class="text-[9px] text-yellow-700 mt-1 border-t border-yellow-300 pt-0.5 font-bold leading-none flex flex-col items-center"><span class="text-[10px] text-yellow-800 font-black">${displayTarget}</span></div>`;
-                    } else if (note.status === 'green') {
-                        cellBg = "bg-green-50"; borderStyle = "border-green-500 shadow-sm";
-                        const displayTarget = note.targetId || note.targetName;
-                        displayHtml = `<div class="font-bold text-[8px] text-gray-400 line-through mb-0.5 leading-none">${s.display}</div><div class="font-black ${fsClass} text-green-700 leading-none">${note.targetShift}</div>`;
-                    }
-                }
-                
-                grid.innerHTML += `<div class="flex flex-col items-center pt-1 ${cHeight} border-b border-r border-gray-200 ${cellBg}"><span class="${dSize} font-black text-gray-400 mb-1">${d}</span><div class="border rounded px-0.5 py-1 w-[90%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center ${wMinH} shadow-sm">${displayHtml}</div></div>`;
+                else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
+                grid.innerHTML += `<div class="flex flex-col items-center pt-1 h-20 border-b border-r border-gray-200 ${cellBg}"><span class="text-[10px] font-black text-gray-400 mb-1">${d}</span><div class="border rounded px-0.5 py-1 w-[90%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center min-h-[40px] shadow-sm">${displayHtml}</div></div>`;
             }
             document.getElementById('readOnlyScheduleModal').classList.remove('hidden');
         };
 
-        window.closeReadOnlySchedule = () => {
-            document.getElementById('readOnlyScheduleModal').classList.add('hidden');
-        };
+        window.closeReadOnlySchedule = () => document.getElementById('readOnlyScheduleModal').classList.add('hidden');
 
         window.setSwapNote = async (dateKey, statusStr) => {
             if(!window.currentUser) return;
@@ -993,7 +1061,7 @@
         };
 
         window.showCustomDropdown = () => { document.getElementById('customShiftDropdown').classList.remove('hidden'); window.filterCustomDropdown(); };
-
+        
         window.filterCustomDropdown = () => {
             const inputVal = document.getElementById('queryShift').value.toLowerCase();
             const dropdown = document.getElementById('customShiftDropdown'); dropdown.innerHTML = '';
@@ -1019,252 +1087,117 @@
             if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">無人上「${s}」</p>`; return; }
             list.forEach(e => {
                 const tag = document.createElement('div'); tag.className = "bg-white border border-blue-100 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
-                tag.innerHTML = `
-                    <span class="text-sm font-bold text-gray-700">${window.currentMonth}/${d} ｜ <span class="text-[#1b759a]">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${s}</span>
+                tag.innerHTML = `<span class="text-sm font-bold text-gray-700">${window.currentMonth}/${d} ｜ <span class="text-[#1b759a]">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${s}</span>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-blue-50 hover:bg-blue-100 text-[#1b759a] border border-blue-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
-                            <span class="text-sm leading-none">📅</span>
-                        </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${s}', false)" class="text-[10px] bg-[#1b759a] text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
-                            📌
-                        </button>
+                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-blue-50 hover:bg-blue-100 text-[#1b759a] border border-blue-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center"><span class="text-sm leading-none">📅</span></button>
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${s}')" class="text-[10px] bg-[#1b759a] text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">📌</button>
                     </div>`;
                 res.appendChild(tag);
             });
         };
 
-        // 💡 找 R 班：改為淺藍色視覺
         window.executeRQuery = () => {
-            const d = document.getElementById('queryRDate').value; 
-            const type = document.getElementById('queryRType').value; 
+            const d = document.getElementById('queryRDate').value; const type = document.getElementById('queryRType').value; 
             const res = document.getElementById('queryRResults'); res.innerHTML = '';
-            if (!d || !type) { showToast("⚠️ 請選擇日期與班型", true); return; }
-
-            const list = window.allEmployees.filter(e => {
-                const s = e.shifts[d - 1];
-                if (!s || s.isMissing) return false;
-                
-                let isR = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
-                const matchRole = e.role && e.role.includes(type);
-                return isR && matchRole;
-            });
-
-            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">當日無「${type}班」同仁排定休假</p>`; return; }
-            
+            if (!d || !type) { showToast("⚠️ 請選擇", true); return; }
+            const list = window.allEmployees.filter(e => { const s = e.shifts[d - 1]; if (!s || s.isMissing) return false; let isR = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass); return isR && e.role && e.role.includes(type); });
+            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">當日無「${type}班」休假</p>`; return; }
             list.forEach(e => {
                 const sDisp = e.shifts[d - 1].display;
                 const tag = document.createElement('div'); tag.className = "bg-sky-50 border border-sky-200 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
-                tag.innerHTML = `
-                    <span class="text-sm font-bold text-sky-900">${window.currentMonth}/${d} ｜ <span class="text-sky-600">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
+                tag.innerHTML = `<span class="text-sm font-bold text-sky-900">${window.currentMonth}/${d} ｜ <span class="text-sky-600">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
-                            <span class="text-sm leading-none">📅</span>
-                        </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}', true)" class="text-[10px] bg-sky-500 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
-                            📌
-                        </button>
+                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center"><span class="text-sm leading-none">📅</span></button>
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-sky-500 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">📌</button>
                     </div>`;
                 res.appendChild(tag);
             });
         };
 
-        // 💡 依時段找卡邏輯
         window.executeTimeSlotQuery = () => {
-            const d = document.getElementById('queryTimeDate').value;
-            const startH = parseInt(document.getElementById('queryTimeStart').value);
-            const endH = parseInt(document.getElementById('queryTimeEnd').value);
-            const res = document.getElementById('queryTimeResults');
-            res.innerHTML = '';
-
-            if (!d || isNaN(startH) || isNaN(endH)) { showToast("⚠️ 請選擇日期與區間", true); return; }
-
-            const startTotalMins = startH * 60;
-            const endTotalMins = endH * 60;
-
-            const list = window.allEmployees.filter(e => {
-                const s = e.shifts[d - 1];
-                if (!s || s.isMissing || s.display === 'X') return false;
-
-                const shiftInfo = window.customShifts[s.display];
-                // 排除 R 班與特殊班型
-                if (!shiftInfo || shiftInfo.isRClass || shiftInfo.isSpecial) return false; 
-
-                if (shiftInfo.startTime) {
-                    const [hh, mm] = shiftInfo.startTime.split(':').map(Number);
-                    const shiftMins = hh * 60 + mm;
-                    // 落於時段區間內 (包含整點)
-                    return shiftMins >= startTotalMins && shiftMins <= endTotalMins;
-                }
-                return false;
-            });
-
-            if (list.length === 0) {
-                res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold py-2">該時段內無人上班，或僅有特殊班型</p>`;
-                return;
-            }
-
-            // 💡 新增：依照地點與名稱完美排序 (松山 -> 新店 -> 七張，再來是 A-Z 與數字自然排序)
-            list.sort((a, b) => {
-                const sA = a.shifts[d - 1].display;
-                const sB = b.shifts[d - 1].display;
-                const locA = (window.customShifts[sA] || {}).location || window.guessLocation(sA, false);
-                const locB = (window.customShifts[sB] || {}).location || window.guessLocation(sB, false);
-
-                // 步驟 1: 地點權重
-                const getLocRank = (loc) => {
-                    if (loc.includes('松山')) return 1;
-                    if (loc.includes('新店')) return 2;
-                    if (loc.includes('七張')) return 3;
-                    return 4;
-                };
-
-                const rankA = getLocRank(locA);
-                const rankB = getLocRank(locB);
-
-                if (rankA !== rankB) return rankA - rankB; // 地點不同的話，依照權重排序
-
-                // 步驟 2 & 3: 相同地點，依照英文字母與數字自然排序 (例如 H1 會排在 H2 前面，H2 會在 H10 前面)
-                return sA.localeCompare(sB, undefined, { numeric: true, sensitivity: 'base' });
-            });
-
-            // 依照卡片地點設定顏色
+            const d = document.getElementById('queryTimeDate').value; const startH = parseInt(document.getElementById('queryTimeStart').value); const endH = parseInt(document.getElementById('queryTimeEnd').value);
+            const res = document.getElementById('queryTimeResults'); res.innerHTML = '';
+            if (!d || isNaN(startH) || isNaN(endH)) { showToast("⚠️ 請選擇區間", true); return; }
+            const startTotalMins = startH * 60; const endTotalMins = endH * 60;
+            const list = window.allEmployees.filter(e => { const s = e.shifts[d - 1]; if (!s || s.isMissing || s.display === 'X') return false; const shiftInfo = window.customShifts[s.display]; if (!shiftInfo || shiftInfo.isRClass || shiftInfo.isSpecial) return false; if (shiftInfo.startTime) { const [hh, mm] = shiftInfo.startTime.split(':').map(Number); const shiftMins = hh * 60 + mm; return shiftMins >= startTotalMins && shiftMins <= endTotalMins; } return false; });
+            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold py-2">無人上班</p>`; return; }
+            list.sort((a, b) => { const locA = (window.customShifts[a.shifts[d - 1].display] || {}).location || window.guessLocation(a.shifts[d - 1].display, false); const locB = (window.customShifts[b.shifts[d - 1].display] || {}).location || window.guessLocation(b.shifts[d - 1].display, false); const getLocRank = (loc) => { if (loc.includes('松山')) return 1; if (loc.includes('新店')) return 2; if (loc.includes('七張')) return 3; return 4; }; const rankA = getLocRank(locA); const rankB = getLocRank(locB); if (rankA !== rankB) return rankA - rankB; return a.shifts[d - 1].display.localeCompare(b.shifts[d - 1].display, undefined, { numeric: true }); });
             list.forEach(e => {
-                const sDisp = e.shifts[d - 1].display;
-                const shiftInfo = window.customShifts[sDisp];
-                const loc = shiftInfo.location || window.guessLocation(sDisp, false);
-
+                const sDisp = e.shifts[d - 1].display; const loc = (window.customShifts[sDisp] || {}).location || window.guessLocation(sDisp, false);
                 let bgClass = "bg-white"; let textClass = "text-gray-800"; let nameClass = "text-[#1b759a]"; let borderClass = "border-gray-200";
-
-                if (loc.includes('松山')) {
-                    bgClass = "bg-green-100"; textClass = "text-green-900"; nameClass = "text-green-700"; borderClass = "border-green-300";
-                } else if (loc.includes('七張')) {
-                    bgClass = "bg-green-600"; textClass = "text-white"; nameClass = "text-green-100"; borderClass = "border-green-700";
-                } else if (loc.includes('新店')) {
-                    bgClass = "bg-[#1a3a28]"; textClass = "text-gray-100"; nameClass = "text-gray-300"; borderClass = "border-gray-800";
-                }
-
-                const tag = document.createElement('div');
-                tag.className = `${bgClass} ${borderClass} border p-2.5 rounded-xl flex justify-between items-center shadow-sm`;
-                tag.innerHTML = `
-                    <span class="text-sm font-bold ${textClass}">${window.currentMonth}/${d} ｜ <span class="${nameClass}">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
+                if (loc.includes('松山')) { bgClass = "bg-green-100"; textClass = "text-green-900"; nameClass = "text-green-700"; borderClass = "border-green-300"; } 
+                else if (loc.includes('七張')) { bgClass = "bg-green-600"; textClass = "text-white"; nameClass = "text-green-100"; borderClass = "border-green-700"; } 
+                else if (loc.includes('新店')) { bgClass = "bg-[#1a3a28]"; textClass = "text-gray-100"; nameClass = "text-gray-300"; borderClass = "border-gray-800"; }
+                const tag = document.createElement('div'); tag.className = `${bgClass} ${borderClass} border p-2.5 rounded-xl flex justify-between items-center shadow-sm`;
+                tag.innerHTML = `<span class="text-sm font-bold ${textClass}">${window.currentMonth}/${d} ｜ <span class="${nameClass}">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white/20 hover:bg-white/30 ${textClass} border border-white/20 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
-                            <span class="text-sm leading-none">📅</span>
-                        </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}', false, {nameClass: '${nameClass}'})" class="text-[10px] bg-black/30 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
-                            📌
-                        </button>
+                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white/20 hover:bg-white/30 ${textClass} border border-white/20 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center"><span class="text-sm leading-none">📅</span></button>
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-black/30 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">📌</button>
                     </div>`;
                 res.appendChild(tag);
             });
         };
 
         window.handleFileSelect = (e) => {
-            const f = e.target.files[0]; 
-            if (!f) return;
-            window.selectedPdfFile = f;
+            const f = e.target.files[0]; if (!f) return; window.selectedPdfFile = f;
             document.getElementById('pdfFileNameDisplay').innerText = `📄 已選擇：${f.name}`;
-            const btn = document.getElementById('pdfUploadBtn');
-            btn.disabled = false;
+            const btn = document.getElementById('pdfUploadBtn'); btn.disabled = false;
             btn.className = "w-full bg-[#1b759a] text-white font-bold py-3 rounded-xl transition shadow-md hover:bg-blue-700 active:scale-95 text-sm";
             btn.innerText = "2. 確認上傳並解析";
         };
 
         window.startPdfUpload = async () => {
             if (!window.selectedPdfFile) return;
-            const btn = document.getElementById('pdfUploadBtn');
-            btn.disabled = true; btn.innerText = "⏳ 上傳與解析中...";
+            const btn = document.getElementById('pdfUploadBtn'); btn.disabled = true; btn.innerText = "⏳ 上傳與解析中...";
             btn.className = "w-full bg-gray-400 text-white font-bold py-3 rounded-xl shadow-inner cursor-wait text-sm";
             showToast("⏳ 正在啟用分頁網格解析引擎更新底層...");
-
             try {
                 const buf = await window.selectedPdfFile.arrayBuffer(); 
                 window.pdfDocument = await pdfjsLib.getDocument({ data: buf }).promise;
                 await buildDbAndSync();
-                document.getElementById('pdfFileNameDisplay').innerText = "1. 點擊此處選擇 PDF 檔案";
-                window.selectedPdfFile = null; btn.innerText = "2. 確認上傳並解析";
+                document.getElementById('pdfFileNameDisplay').innerText = "1. 點擊此處選擇 PDF 檔案"; window.selectedPdfFile = null; btn.innerText = "2. 確認上傳並解析";
                 btn.className = "w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm";
             } catch (err) { 
-                showToast("❌ PDF 讀取出錯", true); console.error(err);
-                btn.disabled = false; btn.innerText = "重新嘗試上傳";
+                showToast("❌ PDF 讀取出錯", true); console.error(err); btn.disabled = false; btn.innerText = "重新嘗試上傳";
                 btn.className = "w-full bg-red-500 text-white font-bold py-3 rounded-xl transition shadow-md text-sm";
             }
         };
 
         async function buildDbAndSync() {
-            window.allEmployees = [];
-            const skip = ["早場", "早塔", "午場", "午塔", "夜場", "夜塔", "日段", "日副", "段長", "副段", "約休", "日間", "家庭", "備註", "春節", "國假", "特休"];
+            window.allEmployees = []; const skip = ["早場", "早塔", "午場", "午塔", "夜場", "夜塔", "日段", "日副", "段長", "副段", "約休", "日間", "家庭", "備註", "春節", "國假", "特休"];
             let dateFound = false;
-
             for (let pageNum = 1; pageNum <= window.pdfDocument.numPages; pageNum++) {
-                const p = await window.pdfDocument.getPage(pageNum); 
-                const c = await p.getTextContent();
+                const p = await window.pdfDocument.getPage(pageNum); const c = await p.getTextContent();
                 let pageItems = c.items.map(it => ({ text: it.str.trim(), x: it.transform[4], y: it.transform[5] })).filter(it => it.text);
-                
-                pageItems.sort((a, b) => {
-                    if (Math.abs(a.y - b.y) > 6) return b.y - a.y;
-                    return a.x - b.x;
-                });
-
-                if (!dateFound) {
-                    for (let obj of pageItems) {
-                        const m = obj.text.match(/(\d+)\s*年\s*(\d+)\s*月/);
-                        if (m) { 
-                            window.currentYear = parseInt(m[1]) + 1911; window.currentMonth = parseInt(m[2]); 
-                            window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate();
-                            dateFound = true; break; 
-                        }
-                    }
-                }
-
+                pageItems.sort((a, b) => { if (Math.abs(a.y - b.y) > 6) return b.y - a.y; return a.x - b.x; });
+                if (!dateFound) { for (let obj of pageItems) { const m = obj.text.match(/(\d+)\s*年\s*(\d+)\s*月/); if (m) { window.currentYear = parseInt(m[1]) + 1911; window.currentMonth = parseInt(m[2]); window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate(); dateFound = true; break; } } }
                 let rows = []; let currentRow = []; let currentY = null;
-                for (let obj of pageItems) {
-                    if (currentY === null) { currentY = obj.y; currentRow.push(obj); } 
-                    else if (Math.abs(obj.y - currentY) <= 8) { currentRow.push(obj); } 
-                    else { rows.push(currentRow); currentRow = [obj]; currentY = obj.y; }
-                }
+                for (let obj of pageItems) { if (currentY === null) { currentY = obj.y; currentRow.push(obj); } else if (Math.abs(obj.y - currentY) <= 8) { currentRow.push(obj); } else { rows.push(currentRow); currentRow = [obj]; currentY = obj.y; } }
                 if (currentRow.length > 0) rows.push(currentRow);
-
                 for (let row of rows) {
                     let nameIdx = -1; let empName = "";
                     for (let i = 0; i < row.length; i++) {
                         let t = row[i].text; let parts = t.split(/\s+/); let lastPart = parts[parts.length - 1]; 
-                        
                         if (/^[\u4e00-\u9fa5]{2,4}$/.test(lastPart) && !skip.includes(lastPart) && !/^(早|午|夜|休|R|C|5|6|7|動|日)/.test(lastPart)) {
-                            if (parts.length > 1) {
-                                row.splice(i, 1); 
-                                for (let p = 0; p < parts.length; p++) { row.splice(i + p, 0, { text: parts[p], x: row[i]?row[i].x:0, y: row[i]?row[i].y:0 }); }
-                                nameIdx = i + parts.length - 1; 
-                            } else { nameIdx = i; }
+                            if (parts.length > 1) { row.splice(i, 1); for (let p = 0; p < parts.length; p++) { row.splice(i + p, 0, { text: parts[p], x: row[i]?row[i].x:0, y: row[i]?row[i].y:0 }); } nameIdx = i + parts.length - 1; } else { nameIdx = i; }
                             empName = lastPart; break;
                         }
                     }
-
                     if (nameIdx !== -1) {
                         let tags = []; let displayId = "無"; let role = "未知";
-                        
                         for (let j = 0; j < nameIdx; j++) {
                             let preText = row[j].text;
-                            if (/^[A-Za-z]?\d{1,6}$/.test(preText)) {
-                                tags.push(preText.toLowerCase());
-                                if (preText.length >= 1 && preText.length <= 4) displayId = preText; 
-                            }
-                            if (/(早|午|夜|日)/.test(preText) && preText.length >= 2) {
-                                role = preText; 
-                            }
+                            if (/^[A-Za-z]?\d{1,6}$/.test(preText)) { tags.push(preText.toLowerCase()); if (preText.length >= 1 && preText.length <= 4) displayId = preText; }
+                            if (/(早|午|夜|日)/.test(preText) && preText.length >= 2) { role = preText; }
                         }
                         if (displayId === "無" && tags.length > 0) displayId = tags[0]; 
-
                         let shifts = []; let k = nameIdx + 1;
                         while (shifts.length < window.daysInMonth && k < row.length) {
                             let st = row[k].text; k++;
                             if (/^\d+(\.\d+)?$/.test(st) && parseFloat(st) >= 5 && parseFloat(st) <= 24) continue; 
                             if (st === "" || st === " ") continue;
-                            
                             let disp = st, h = false, l = false;
-                            if (/R1[A-Z]出\/?(.+?)(約)?$/.test(st)) { disp = st.match(/R1[A-Z]出\/?(.+?)(約)?$/)[1]; h = true; }
-                            else if (/^(R|R1[A-Z]|休.*|事.*|病.*|喪.*|家照.*|補.*|約休.*|約補.*)$/.test(st)) l = true;
-                            
+                            if (/R1[A-Z]出\/?(.+?)(約)?$/.test(st)) { disp = st.match(/R1[A-Z]出\/?(.+?)(約)?$/)[1]; h = true; } else if (/^(R|R1[A-Z]|休.*|事.*|病.*|喪.*|家照.*|補.*|約休.*|約補.*)$/.test(st)) l = true;
                             shifts.push({ raw: st, display: disp, isHolidayWork: h, isLeave: l });
                         }
                         while (shifts.length < window.daysInMonth) shifts.push({ display: "X", isMissing: true });
@@ -1272,16 +1205,13 @@
                     }
                 }
             }
-            
             if (window.allEmployees.length > 0) {
                 const sid = `${window.currentYear}-${window.currentMonth}`;
                 try {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sid), { year: window.currentYear, month: window.currentMonth, employees: window.allEmployees });
                     showToast(`✅ 新底層更新成功！(共解析 ${window.allEmployees.length} 人)`);
                 } catch(e) { showToast(`✅ 本機更新成功，但無法存入雲端`, true); }
-            } else {
-                showToast(`❌ 解析失敗：找不到任何員工資料，請確認 PDF 格式`, true);
-            }
+            } else { showToast(`❌ 解析失敗：找不到任何員工資料，請確認 PDF 格式`, true); }
         }
 
         window.deleteCloudSchedule = () => {
@@ -1289,133 +1219,54 @@
             if (!sid) { showToast("⚠️ 請先選取", true); return; }
             window.customConfirm("刪除官方班表", `確定刪除底層 ${sid} 嗎？`, async () => {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sid));
-                window.allEmployees = []; window.searchedEmployees = []; window.renderAllSchedules();
-                showToast("🗑️ 底層班表已刪除");
+                window.allEmployees = []; window.searchedEmployees = []; window.renderAllSchedules(); showToast("🗑️ 底層班表已刪除");
             });
         };
 
         window.saveShiftType = async () => {
-            const n = document.getElementById('newShiftName').value.trim();
-            const isR = document.getElementById('newShiftIsR').checked;
-            const isSpecial = document.getElementById('newShiftIsSpecial').checked;
-            
-            let s = document.getElementById('newShiftStart').value;
-            let e = document.getElementById('newShiftEnd').value;
-            let loc = document.getElementById('newShiftLocation').value;
-            
+            const n = document.getElementById('newShiftName').value.trim(); const isR = document.getElementById('newShiftIsR').checked; const isSpecial = document.getElementById('newShiftIsSpecial').checked;
+            let s = document.getElementById('newShiftStart').value; let e = document.getElementById('newShiftEnd').value; let loc = document.getElementById('newShiftLocation').value;
             if (isR) { s = ''; e = ''; loc = ''; }
-            
             if (!n || (!isR && (!s || !e))) { showToast("❌ 請填寫完整時間 (或勾選R班)", true); return; }
-            
             const safeDocId = encodeURIComponent(n);
-
-            if (n !== safeDocId && !n.includes('/')) {
-                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){}
-            }
-
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), { 
-                name: n, startTime: s, endTime: e, isRClass: isR, isSpecial: isSpecial, location: loc 
-            });
-            
-            document.getElementById('newShiftName').value = ''; 
-            document.getElementById('newShiftStart').value = ''; 
-            document.getElementById('newShiftEnd').value = '';
-            document.getElementById('newShiftLocation').value = '七張車班';
-            document.getElementById('newShiftIsR').checked = false;
-            document.getElementById('newShiftIsSpecial').checked = false;
-            window.toggleTimeInputs();
-            window.renderShiftSettingsList(); showToast("✅ 設定儲存成功");
+            if (n !== safeDocId && !n.includes('/')) { try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){} }
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), { name: n, startTime: s, endTime: e, isRClass: isR, isSpecial: isSpecial, location: loc });
+            document.getElementById('newShiftName').value = ''; document.getElementById('newShiftStart').value = ''; document.getElementById('newShiftEnd').value = ''; document.getElementById('newShiftLocation').value = '七張車班'; document.getElementById('newShiftIsR').checked = false; document.getElementById('newShiftIsSpecial').checked = false; window.toggleTimeInputs(); window.renderShiftSettingsList(); showToast("✅ 設定儲存成功");
         };
 
         window.editShiftType = (name, start, end, isR, isSpecial, loc) => {
-            document.getElementById('newShiftName').value = name; 
-            document.getElementById('newShiftStart').value = start || ''; 
-            document.getElementById('newShiftEnd').value = end || '';
-            document.getElementById('newShiftIsR').checked = isR === 'true' || isR === true;
-            document.getElementById('newShiftIsSpecial').checked = isSpecial === 'true' || isSpecial === true;
-            
-            let finalLoc = loc;
-            if (isR === 'true' || isR === true) {
-                finalLoc = '';
-            } else if (!finalLoc) {
-                finalLoc = window.guessLocation(name, isSpecial === 'true' || isSpecial === true);
-            }
-            document.getElementById('newShiftLocation').value = finalLoc || '七張車班';
-            
-            window.toggleTimeInputs();
-            window.scrollTo({ top: 0, behavior: 'smooth' }); showToast("✏️ 已帶入上方準備編輯");
+            document.getElementById('newShiftName').value = name; document.getElementById('newShiftStart').value = start || ''; document.getElementById('newShiftEnd').value = end || ''; document.getElementById('newShiftIsR').checked = isR === 'true' || isR === true; document.getElementById('newShiftIsSpecial').checked = isSpecial === 'true' || isSpecial === true;
+            let finalLoc = loc; if (isR === 'true' || isR === true) { finalLoc = ''; } else if (!finalLoc) { finalLoc = window.guessLocation(name, isSpecial === 'true' || isSpecial === true); } document.getElementById('newShiftLocation').value = finalLoc || '七張車班';
+            window.toggleTimeInputs(); window.scrollTo({ top: 0, behavior: 'smooth' }); showToast("✏️ 已帶入上方準備編輯");
         };
 
         window.deleteShiftType = (n) => { 
             const safeDocId = encodeURIComponent(n);
             window.customConfirm("刪除任務設定", `確定永久刪除「${n}」？`, async () => { 
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId)); 
-                
-                if (n !== safeDocId && !n.includes('/')) {
-                    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){}
-                }
-                showToast("🗑️ 已刪除"); 
+                if (n !== safeDocId && !n.includes('/')) { try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){} } showToast("🗑️ 已刪除"); 
             });
         };
 
-        document.getElementById('newShiftIsSpecial').addEventListener('change', (e) => {
-            const isR = document.getElementById('newShiftIsR').checked;
-            if (e.target.checked && !isR) {
-                document.getElementById('newShiftLocation').value = '特殊地點';
-            }
-        });
-
+        document.getElementById('newShiftIsSpecial').addEventListener('change', (e) => { const isR = document.getElementById('newShiftIsR').checked; if (e.target.checked && !isR) { document.getElementById('newShiftLocation').value = '特殊地點'; } });
         window.toggleTimeInputs = () => {
-            const isR = document.getElementById('newShiftIsR').checked;
-            const sInput = document.getElementById('newShiftStart');
-            const eInput = document.getElementById('newShiftEnd');
-            const lInput = document.getElementById('newShiftLocation');
+            const isR = document.getElementById('newShiftIsR').checked; const sInput = document.getElementById('newShiftStart'); const eInput = document.getElementById('newShiftEnd'); const lInput = document.getElementById('newShiftLocation');
             sInput.disabled = isR; eInput.disabled = isR; lInput.disabled = isR;
-            if (isR) {
-                sInput.value = ''; eInput.value = ''; lInput.value = '';
-                sInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                eInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                lInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-            } else {
-                sInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                eInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                lInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                if(lInput.value === '') lInput.value = '七張車班';
-            }
+            if (isR) { sInput.value = ''; eInput.value = ''; lInput.value = ''; sInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); eInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); lInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); } 
+            else { sInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); eInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); lInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); if(lInput.value === '') lInput.value = '七張車班'; }
         };
 
         window.initDefaultRShifts = async () => {
             if(!window.currentUser) return;
             const rShifts = ["R", "休8", "休8午", "休8夜", "事8", "病8", "補8", "家照8", "約休8早", "約休8午", "約補8午", "約補8早"];
             for(let i=65; i<=90; i++) rShifts.push("R1" + String.fromCharCode(i));
-
-            showToast("⏳ 正在執行任務卡更新與舊資料地點分析...");
-            
-            for (let r of rShifts) {
-                if(!window.customShifts[r]) {
-                    const safeDocId = encodeURIComponent(r);
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), {
-                        name: r, startTime: "", endTime: "", isRClass: true, isSpecial: false, location: ""
-                    });
-                }
-            }
-
+            showToast("⏳ 正在執行任務卡更新...");
+            for (let r of rShifts) { if(!window.customShifts[r]) { const safeDocId = encodeURIComponent(r); await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), { name: r, startTime: "", endTime: "", isRClass: true, isSpecial: false, location: "" }); } }
             for (let key in window.customShifts) {
-                let s = window.customShifts[key];
-                const safeDocId = encodeURIComponent(s.name);
-                
-                let updatedData = { ...s };
-                if (s.isRClass && s.location !== "") {
-                    updatedData.location = "";
-                } else if (!s.isRClass && !s.location) {
-                    updatedData.location = window.guessLocation(s.name, s.isSpecial);
-                }
-                
+                let s = window.customShifts[key]; const safeDocId = encodeURIComponent(s.name); let updatedData = { ...s };
+                if (s.isRClass && s.location !== "") { updatedData.location = ""; } else if (!s.isRClass && !s.location) { updatedData.location = window.guessLocation(s.name, s.isSpecial); }
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), updatedData);
-
-                if (s.name !== safeDocId && !s.name.includes('/')) {
-                    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', s.name)); } catch(e){}
-                }
+                if (s.name !== safeDocId && !s.name.includes('/')) { try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', s.name)); } catch(e){} }
             }
             showToast("✅ 任務卡更新與地點升級完成！");
         };
@@ -1426,45 +1277,23 @@
             let shifts = Object.values(window.customShifts).sort((a, b) => a.name.localeCompare(b.name));
             if (filterText) shifts = shifts.filter(s => s.name.toLowerCase().includes(filterText));
             if (shifts.length === 0 && filterText) { el.innerHTML = '<p class="text-center text-gray-400 text-sm font-bold py-4">沒有找到相關的任務卡</p>'; return; }
-
             shifts.forEach(s => {
                 const d = document.createElement('div'); d.className = "bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-100";
-                
-                let badges = "";
-                if (s.isRClass) badges += `<span class="bg-gray-100 text-gray-500 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">休假</span>`;
-                if (s.isSpecial) badges += `<span class="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">特殊</span>`;
-
-                const locDisplay = s.location || window.guessLocation(s.name, s.isSpecial);
-                const timeDisp = s.isRClass ? "🛌 休假日 (無地點/時間)" : `🕒 ${s.startTime} - ${s.endTime} &nbsp;&nbsp;📍 ${locDisplay}`;
-
-                d.innerHTML = `
-                    <div class="flex-1"><p class="font-black text-[#1b759a] text-lg flex items-center">${s.name} ${badges}</p><p class="text-[11px] text-gray-500 font-bold tracking-tighter mt-0.5">${timeDisp}</p></div>
-                    
-                    ${window.isAdmin ? `
-                    <div class="flex items-center gap-2">
+                let badges = ""; if (s.isRClass) badges += `<span class="bg-gray-100 text-gray-500 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">休假</span>`; if (s.isSpecial) badges += `<span class="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">特殊</span>`;
+                const locDisplay = s.location || window.guessLocation(s.name, s.isSpecial); const timeDisp = s.isRClass ? "🛌 休假日 (無地點/時間)" : `🕒 ${s.startTime} - ${s.endTime} &nbsp;&nbsp;📍 ${locDisplay}`;
+                d.innerHTML = `<div class="flex-1"><p class="font-black text-[#1b759a] text-lg flex items-center">${s.name} ${badges}</p><p class="text-[11px] text-gray-500 font-bold tracking-tighter mt-0.5">${timeDisp}</p></div>
+                    ${window.isAdmin ? `<div class="flex items-center gap-2">
                         <button onclick="window.editShiftType('${s.name.replace(/'/g, "\\'")}', '${s.startTime}', '${s.endTime}', ${s.isRClass}, ${s.isSpecial}, '${(s.location || '').replace(/'/g, "\\'")}')" class="p-2.5 text-blue-500 bg-blue-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
                         <button onclick="window.deleteShiftType('${s.name.replace(/'/g, "\\'")}')" class="p-2.5 text-red-500 bg-red-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
-                    </div>
-                    ` : ''}
-                    `;
+                    </div>` : ''}`;
                 el.appendChild(d);
             });
         };
 
         window.updateDropdowns = () => {
-            const dSel = document.getElementById('queryDate'); 
-            const rSel = document.getElementById('queryRDate'); 
-            const tSel = document.getElementById('queryTimeDate');
-            dSel.innerHTML = '<option value="">選擇日期</option>';
-            rSel.innerHTML = '<option value="">選擇日期</option>';
-            if(tSel) tSel.innerHTML = '<option value="">選擇日期</option>';
-            if(window.daysInMonth > 0) {
-                for (let i = 1; i <= window.daysInMonth; i++) {
-                    dSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
-                    rSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
-                    if(tSel) tSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
-                }
-            }
+            const dSel = document.getElementById('queryDate'); const rSel = document.getElementById('queryRDate'); const tSel = document.getElementById('queryTimeDate');
+            dSel.innerHTML = '<option value="">選擇日期</option>'; rSel.innerHTML = '<option value="">選擇日期</option>'; if(tSel) tSel.innerHTML = '<option value="">選擇日期</option>';
+            if(window.daysInMonth > 0) { for (let i = 1; i <= window.daysInMonth; i++) { dSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`; rSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`; if(tSel) tSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`; } }
         };
 
         window.toggleExportHelp = () => {
@@ -1478,90 +1307,55 @@
             if (!sid) { showToast("⚠️ 請先選擇要匯出的月份", true); return; }
             const q = document.getElementById('exportEmpId').value.trim().replace(/\s+/g, '').toLowerCase();
             if (!q) { showToast("⚠️ 請輸入差號或姓名", true); return; }
-
             const expData = window.cloudSchedulesDB[sid];
-            if (!expData || !expData.employees) { showToast("❌ 雲端資料異常，請重新載入", true); return; }
-
+            if (!expData || !expData.employees) { showToast("❌ 雲端資料異常", true); return; }
             let emp = expData.employees.find(e => e.searchTags && e.searchTags.some(tag => tag === q));
             if (!emp) emp = expData.employees.find(e => String(e.name).replace(/\s+/g, '').includes(q));
-
             if (!emp) { showToast(`❌ 找不到員工「${q}」`, true); return; }
             window.exportTargetEmp = emp;
-            
             document.getElementById('exportMonthYearHeader').innerText = `${expData.year}年 ${expData.month}月`;
             document.getElementById('exportEmpInfoHeader').innerText = `${emp.id !== '無' ? emp.id + ' ' : ''}${emp.name}`;
-            
             const grid = document.getElementById('exportCalendarGrid'); grid.innerHTML = '';
             const firstDay = new Date(expData.year, expData.month - 1, 1).getDay();
             for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 h-16 opacity-50"></div>`;
-
             for (let d = 1; d <= new Date(expData.year, expData.month, 0).getDate(); d++) {
                 const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
                 let mainColor = "text-[#1b759a] bg-white";
-                if (s.isMissing) { mainColor = "text-gray-400 bg-gray-50 opacity-60"; }
-                else if (s.isHolidayWork) { mainColor = "text-orange-600 bg-orange-50 font-black"; }
-                else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { 
-                    mainColor = "text-gray-400 bg-gray-100"; 
-                }
+                if (s.isMissing) { mainColor = "text-gray-400 bg-gray-50 opacity-60"; } else if (s.isHolidayWork) { mainColor = "text-orange-600 bg-orange-50 font-black"; } else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { mainColor = "text-gray-400 bg-gray-100"; }
                 grid.innerHTML += `<div class="flex flex-col items-center pt-1 h-16 border-b border-r border-gray-200 ${mainColor}"><span class="text-[10px] font-black text-gray-400 mb-0.5">${d}</span><div class="text-[10px] leading-tight font-bold">${s.isMissing ? '-' : s.display}</div></div>`;
             }
-            document.getElementById('exportResultArea').classList.remove('hidden'); document.getElementById('exportEmpId').blur();
-            showToast(`✅ 已載入 ${emp.name} 的班表`);
+            document.getElementById('exportResultArea').classList.remove('hidden'); document.getElementById('exportEmpId').blur(); showToast(`✅ 已載入 ${emp.name} 的班表`);
         };
 
         window.generateICS = () => {
             if (!window.exportTargetEmp) return;
             const emp = window.exportTargetEmp; const sid = document.getElementById('exportCloudSchedules').value;
             const data = window.cloudSchedulesDB[sid]; const year = data.year; const month = data.month; const daysInMonth = new Date(year, month, 0).getDate();
-
-            const now = new Date();
-            const stampStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
+            const now = new Date(); const stampStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
             let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MRT Shift Swap App//TW\r\nCALSCALE:GREGORIAN\r\n";
-
             for (let d = 1; d <= daysInMonth; d++) {
-                const shift = emp.shifts[d - 1];
-                const shiftInfo = window.customShifts[shift.display];
-                
+                const shift = emp.shifts[d - 1]; const shiftInfo = window.customShifts[shift.display];
                 if (!shift || shift.isMissing || shift.isLeave || shift.display === 'X' || (shiftInfo && shiftInfo.isRClass)) continue;
-
                 const mm = month.toString().padStart(2, '0'); const dd = d.toString().padStart(2, '0'); const dateStr = `${year}${mm}${dd}`;
                 const uid = `mrt-${year}${mm}${dd}-${encodeURIComponent(emp.name)}@mrtschedule`;
-
-                icsContent += "BEGIN:VEVENT\r\n";
-                icsContent += `UID:${uid}\r\n`;
-                icsContent += `DTSTAMP:${stampStr}\r\n`;
-                icsContent += `SUMMARY:${shift.display}\r\n`;
-                icsContent += `DESCRIPTION:捷運班表 (${emp.name})\r\n`;
-                
-                if (shiftInfo && shiftInfo.location) {
-                    icsContent += `LOCATION:${shiftInfo.location}\r\n`;
-                }
-
+                icsContent += "BEGIN:VEVENT\r\n"; icsContent += `UID:${uid}\r\n`; icsContent += `DTSTAMP:${stampStr}\r\n`; icsContent += `SUMMARY:${shift.display}\r\n`; icsContent += `DESCRIPTION:捷運班表 (${emp.name})\r\n`;
+                if (shiftInfo && shiftInfo.location) { icsContent += `LOCATION:${shiftInfo.location}\r\n`; }
                 if (shiftInfo && shiftInfo.startTime && shiftInfo.endTime) {
                     const startParts = shiftInfo.startTime.split(':'); const endParts = shiftInfo.endTime.split(':');
                     let dtStartStr = `${dateStr}T${startParts[0]}${startParts[1]}00`;
                     let endD = d; let endM = month; let endY = year;
-                    if (parseInt(endParts[0]) < parseInt(startParts[0]) || (parseInt(endParts[0]) === parseInt(startParts[0]) && parseInt(endParts[1]) < parseInt(startParts[1]))) {
-                        let nextDay = new Date(year, month - 1, d + 1); endD = nextDay.getDate(); endM = nextDay.getMonth() + 1; endY = nextDay.getFullYear();
-                    }
+                    if (parseInt(endParts[0]) < parseInt(startParts[0]) || (parseInt(endParts[0]) === parseInt(startParts[0]) && parseInt(endParts[1]) < parseInt(startParts[1]))) { let nextDay = new Date(year, month - 1, d + 1); endD = nextDay.getDate(); endM = nextDay.getMonth() + 1; endY = nextDay.getFullYear(); }
                     let endMm = endM.toString().padStart(2, '0'); let endDd = endD.toString().padStart(2, '0');
                     let dtEndStr = `${endY}${endMm}${endDd}T${endParts[0]}${endParts[1]}00`;
-                    
-                    icsContent += `DTSTART:${dtStartStr}\r\n`; 
-                    icsContent += `DTEND:${dtEndStr}\r\n`;
+                    icsContent += `DTSTART:${dtStartStr}\r\n`; icsContent += `DTEND:${dtEndStr}\r\n`;
                 } else {
-                    let nextDay = new Date(year, month - 1, d + 1);
-                    let endMm = (nextDay.getMonth() + 1).toString().padStart(2, '0'); let endDd = nextDay.getDate().toString().padStart(2, '0');
+                    let nextDay = new Date(year, month - 1, d + 1); let endMm = (nextDay.getMonth() + 1).toString().padStart(2, '0'); let endDd = nextDay.getDate().toString().padStart(2, '0');
                     let endDateStr = `${nextDay.getFullYear()}${endMm}${endDd}`;
-                    icsContent += `SUMMARY:${shift.display} (未設定時間)\r\n`; 
-                    icsContent += `DTSTART;VALUE=DATE:${dateStr}\r\n`; 
-                    icsContent += `DTEND;VALUE=DATE:${endDateStr}\r\n`;
+                    icsContent += `SUMMARY:${shift.display} (未設定時間)\r\n`; icsContent += `DTSTART;VALUE=DATE:${dateStr}\r\n`; icsContent += `DTEND;VALUE=DATE:${endDateStr}\r\n`;
                 }
                 icsContent += "END:VEVENT\r\n";
             }
             icsContent += "END:VCALENDAR\r\n";
-
             const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
             const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
             link.download = `${year}年${month}月_${emp.id !== '無' ? emp.id : ''}${emp.name}_班表.ics`;
@@ -1572,15 +1366,11 @@
             document.getElementById('view-schedule').className = t === 'schedule' ? 'block' : 'hidden';
             document.getElementById('view-export').className = t === 'export' ? 'block' : 'hidden';
             document.getElementById('view-settings').className = t === 'settings' ? 'block' : 'hidden';
-            
             const tabs = ['schedule', 'export', 'settings'];
             tabs.forEach(tab => {
                 const btn = document.getElementById('btn-tab-' + tab);
-                if (tab === t) {
-                    btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold`;
-                } else {
-                    btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold`;
-                }
+                if (tab === t) { btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold`; } 
+                else { btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold`; }
             });
             window.scrollTo({ top: 0 });
         };
