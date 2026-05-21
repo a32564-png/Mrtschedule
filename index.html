@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>換班小幫手 v3.2</title>
     
-    <link rel="manifest" href="manifest.json">
+    <link class="manifest" href="manifest.json">
     <meta name="theme-color" content="#1b759a">
     <link rel="apple-touch-icon" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28,19 +28,27 @@
         .custom-scrollbar::-webkit-scrollbar { display: block; width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        @keyframes pulse-border { 0% { border-color: rgba(234, 179, 8, 1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(234, 179, 8, 0); } 100% { border-color: rgba(234, 179, 8, 1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); } }
+        .animate-warning-pulse { animation: pulse-border 2s infinite; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased pb-28">
 
     <div id="loadingOverlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="w-12 h-12 border-4 border-blue-100 border-t-[#1b759a] rounded-full animate-spin mb-4"></div>
-        <p class="text-[#1b759a] font-bold animate-pulse">連線至雲端系統...</p>
+        <div id="loadingSpinner" class="w-12 h-12 border-4 border-blue-100 border-t-[#1b759a] rounded-full animate-spin mb-4"></div>
+        <p id="loadingText" class="text-[#1b759a] font-bold animate-pulse">連線至雲端系統...</p>
+        
+        <div id="loadingError" class="hidden flex-col items-center mt-4 px-6 w-full max-w-sm">
+            <p id="loadingErrorMsg" class="text-red-500 text-xs text-center font-bold bg-red-50 p-3 rounded-xl border border-red-200 break-words w-full"></p>
+        </div>
     </div>
 
     <div id="toastMsg" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[110] hidden flex-col items-center w-11/12 max-w-sm pointer-events-none">
         <div id="toastContent" class="bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-center w-full">提示訊息</div>
     </div>
 
+    <!-- ========== 視圖 1：班表作業 ========== -->
     <div id="view-schedule" class="block">
         
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-50">
@@ -61,19 +69,38 @@
                     <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>📅</span> 選擇班表</label>
                     <svg id="icon-acc-select" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
+                
                 <div id="acc-select" class="transition-all duration-300" style="max-height: 2000px; opacity: 1; overflow: visible;">
-                    <div class="px-4 pb-5 pt-2">
+                    <div class="px-4 pb-2 pt-2">
                         <select id="mainScheduleSelect" onchange="window.loadMainSchedule()" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 shadow-inner text-center">
                             <option value="">載入中...</option>
                         </select>
-                        <div id="scheduleInfoBlock" class="hidden mt-3 bg-[#f8fafc] border border-gray-200 rounded-xl p-3 shadow-inner">
-                            <p class="text-[11px] text-gray-500 font-bold mb-1.5 flex items-start gap-1"><span class="shrink-0 mt-0.5">📄 檔案名稱：</span><span id="infoFileName" class="text-gray-700 line-clamp-2 break-words leading-tight"></span></p>
-                            <p class="text-[11px] text-gray-500 font-bold flex items-center gap-1"><span class="shrink-0">⏱️ 上傳時間：</span><span id="infoUploadTime" class="text-[#1b759a]"></span></p>
+                    </div>
+
+                    <!-- 💡 版本資訊區塊放回折疊區塊內部，跟著選單抽屜一起收起與打開 -->
+                    <div id="scheduleVersionInfo" class="hidden px-4 pb-4 bg-white relative z-30">
+                        <div class="bg-gray-50 border border-blue-100 rounded-xl p-3.5 shadow-sm text-xs text-gray-600 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-[#1b759a]"></div>
+                            <div class="flex items-start gap-2 mb-2 pl-1">
+                                <span class="mt-0.5 text-[14px]">📄</span>
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-black text-[#1b759a] tracking-wider block mb-0.5">檔案名稱</span>
+                                    <div id="infoFileName" class="font-bold text-gray-700 break-all line-clamp-2 leading-relaxed bg-white border border-gray-200 px-2 py-1 rounded"></div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-2 pl-1">
+                                <span class="mt-0.5 text-[14px]">⏱️</span>
+                                <div>
+                                    <span class="font-black text-[#1b759a] tracking-wider block mb-0.5">上傳時間</span>
+                                    <div id="infoUploadTime" class="font-bold text-gray-700 bg-white border border-gray-200 px-2 py-1 rounded"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- ========== 下方所有的查詢與功能區塊 ========== -->
             <div id="actionSectionsContainer" class="hidden">
                 <div class="border-b border-gray-100 bg-white">
                     <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-search')">
@@ -153,13 +180,15 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
 
+        <!-- 📌 釘選口袋名單區塊 -->
         <div id="pinnedTagsContainer" class="px-3 mt-4 hidden relative z-20">
             <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
-                <p class="text-[11px] text-gray-400 mb-3 font-bold uppercase tracking-widest flex items-center gap-1"><span>📌</span> 釘選公佈欄</p>
+                <div class="mb-3">
+                    <p class="text-[11px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1"><span>📌</span> 釘選口袋名單 <span id="pinMonthDisplay" class="text-gray-500 ml-1"></span></p>
+                </div>
                 <div id="pinnedTags" class="flex flex-col gap-2"></div>
             </div>
         </div>
@@ -167,6 +196,7 @@
         <div id="multiScheduleContainer" class="max-w-md mx-auto mt-4 space-y-4 px-3 pb-6 relative z-10"></div>
     </div>
 
+    <!-- ========== 視圖 2：班表匯出 ========== -->
     <div id="view-export" class="hidden">
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-20">
             <div class="p-3 flex items-center gap-2 text-white cursor-default">
@@ -233,6 +263,7 @@
         </div>
     </div>
 
+    <!-- ========== 視圖 3：任務庫設定 ========== -->
     <div id="view-settings" class="hidden">
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-20">
             <div class="p-3 flex justify-between items-center text-white cursor-default">
@@ -269,7 +300,7 @@
                                 <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase">📄 上傳新班表 PDF</label>
                                 <div class="flex flex-col gap-2">
                                     <label class="block w-full text-center border-2 border-dashed border-blue-300 bg-white hover:bg-blue-50 text-[#1b759a] font-bold py-3 rounded-xl cursor-pointer transition px-3">
-                                        <span id="pdfFileNameDisplay" class="text-xs block line-clamp-2 break-all w-full leading-relaxed">1. 點擊選擇 PDF 檔案</span>
+                                        <span id="pdfFileNameDisplay" class="text-xs block truncate w-full">1. 點擊選擇 PDF 檔案</span>
                                         <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="window.handleFileSelect(event)">
                                     </label>
                                     <button id="pdfUploadBtn" onclick="window.startPdfUpload()" disabled class="w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm">2. 確認上傳並解析</button>
@@ -327,7 +358,6 @@
                         </div>
 
                         <div id="shiftSettingsList" class="space-y-3 pb-4"></div>
-
                     </div>
                 </div>
             </div>
@@ -335,6 +365,7 @@
         </div>
     </div>
 
+    <!-- 底部導覽列 -->
     <nav class="fixed bottom-0 w-full max-w-md left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md border-t border-gray-200 flex justify-around items-stretch pb-safe z-50 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
         <button id="btn-tab-schedule" onclick="window.switchTab('schedule')" class="flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold">
             <span class="text-[22px] mb-0.5">📅</span><span class="text-[10px]">班表作業</span>
@@ -347,6 +378,7 @@
         </button>
     </nav>
 
+    <!-- 管理員密碼Modal -->
     <div id="pwdModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">系統管理員解鎖</h3>
@@ -361,6 +393,37 @@
         </div>
     </div>
 
+    <!-- 📌 釘選變動通知 Modal -->
+    <div id="pinWarningModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center border-t-8 border-yellow-400">
+            <div class="text-4xl mb-2">⚠️</div>
+            <h3 class="text-xl font-black text-gray-800 mb-2">班表變動通知</h3>
+            <p id="pinWarningDesc" class="text-xs text-gray-500 font-bold mb-4">系統偵測到釘選名單的班表已更新</p>
+            
+            <div class="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-5 shadow-inner text-left">
+                <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                    <span id="pinWarningDate" class="text-sm font-black text-gray-700 bg-gray-200 px-2 py-0.5 rounded"></span>
+                    <span id="pinWarningName" class="text-[#1b759a] font-black text-base"></span>
+                </div>
+                
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold text-gray-400">原任務卡</span>
+                    <span id="pinWarningOldShift" class="text-sm font-black text-gray-500 line-through"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-yellow-600">新任務卡</span>
+                    <span id="pinWarningNewShift" class="text-lg font-black text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded border border-yellow-200 shadow-sm"></span>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="window.closePinWarningModal()" class="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-xl font-black hover:bg-gray-200 active:scale-95 transition">取消</button>
+                <button id="pinWarningConfirmBtn" class="flex-1 py-3.5 bg-yellow-500 text-white rounded-xl font-black shadow-md hover:bg-yellow-600 active:scale-95 transition flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>確認並更新</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 唯讀班表 modal -->
     <div id="readOnlyScheduleModal" class="hidden fixed inset-0 bg-black/70 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-modal flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-5 bg-[#f4f8fb] border-b border-blue-100">
@@ -389,6 +452,7 @@
         </div>
     </div>
 
+    <!-- 換班詳細與編輯 modal -->
     <div id="shiftModal" class="hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-modal overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
@@ -404,6 +468,7 @@
         </div>
     </div>
 
+    <!-- 換班確認 modal -->
     <div id="swapConfirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">確定是這張卡嗎？</h3>
@@ -419,6 +484,7 @@
         </div>
     </div>
 
+    <!-- 刪除/警告確認 modal -->
     <div id="confirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal">
             <h3 class="text-xl font-black text-red-500 mb-2 flex items-center gap-2">⚠️ <span id="confirmTitle">確認</span></h3>
@@ -430,13 +496,15 @@
         </div>
     </div>
 
+    <!-- Firebase 邏輯與應用主程序 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const ADMIN_PASSWORD = "28830"; 
+        const ADMIN_PASSWORD = "28830";
         window.isAdmin = false;
+        window.fontSizeLevel = 0;
 
         window.closePwdModal = () => {
             document.getElementById('pwdModal').classList.add('hidden');
@@ -499,7 +567,6 @@
             }
         };
 
-        window.fontSizeLevel = 0;
         window.toggleFontSize = () => {
             window.fontSizeLevel = (window.fontSizeLevel + 1) % 3;
             const sizeNames = ["標準", "放大", "特大"];
@@ -509,6 +576,24 @@
                 window.renderAllSchedules();
             }
         };
+
+        window.showConnectionError = (errMessage) => {
+            const spinner = document.getElementById('loadingSpinner');
+            const text = document.getElementById('loadingText');
+            const errorArea = document.getElementById('loadingError');
+            const errorMsg = document.getElementById('loadingErrorMsg');
+            
+            if(spinner) spinner.classList.add('hidden');
+            if(text) { text.innerText = "⚠️ 系統連線失敗"; text.classList.remove('animate-pulse', 'text-[#1b759a]'); text.classList.add('text-red-600', 'text-xl', 'mb-2'); }
+            if(errorArea) errorArea.classList.remove('hidden');
+            if(errorMsg) errorMsg.innerText = errMessage;
+            
+            console.error("🔥 Firebase 連線除錯: ", errMessage);
+        };
+
+        let connTimeout = setTimeout(() => {
+            window.showConnectionError("連線逾時 (超過 10 秒)。\n\n可能原因：\n1. 網路不穩\n2. 瀏覽器擴充功能阻擋\n3. 內網封鎖了 Firebase 網域");
+        }, 10000);
 
         const firebaseConfig = {
             apiKey: "AIzaSyDoguq1z7qldw36my7_Wnyc_0vlVbMZTww",
@@ -531,6 +616,7 @@
         window.currentUser = null;
         window.searchedEmployees = []; 
         window.personalSwapNotes = {}; 
+        window.userPinnedTags = {}; 
         window.exportTargetEmp = null; 
         window.selectedPdfFile = null;
 
@@ -607,6 +693,7 @@
                 window.initTimeOptions();
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftTypes'), (snap) => {
+                    clearTimeout(connTimeout);
                     window.customShifts = {}; 
                     snap.forEach(d => {
                         const data = d.data();
@@ -622,6 +709,9 @@
                     window.renderShiftSettingsList(); window.updateDropdowns();
                     document.getElementById('loadingOverlay').classList.add('opacity-0');
                     setTimeout(()=> document.getElementById('loadingOverlay').classList.add('hidden'), 500);
+                }, (error) => {
+                    clearTimeout(connTimeout);
+                    window.showConnectionError(`[資料庫讀取拒絕/失敗]\n代碼: ${error.code}\n訊息: ${error.message}`);
                 });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'schedules'), (snap) => {
@@ -644,49 +734,77 @@
                         const opt = `<option value="${d.id}">${d.data().year}年 ${d.data().month}月 班表</option>`;
                         mngSel.innerHTML += opt; mainSel.innerHTML += opt; expSel.innerHTML += opt;
                     });
-                });
+                }, (error) => { console.error("班表清單讀取失敗", error); });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'swapNotes'), (snap) => {
                     window.personalSwapNotes = {}; snap.forEach(d => window.personalSwapNotes[d.id] = d.data());
                     if (window.searchedEmployees.length > 0) window.renderAllSchedules();
-                });
-            } else { signInAnonymously(auth); }
+                    window.renderPinnedTags();
+                }, (error) => { console.error("便利貼讀取失敗", error); });
+
+                onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'pinnedTags'), (snap) => {
+                    window.userPinnedTags = {}; 
+                    snap.forEach(d => window.userPinnedTags[d.id] = d.data());
+                    window.renderPinnedTags();
+                }, (error) => { console.error("釘選名單讀取失敗", error); });
+
+            } else { 
+                signInAnonymously(auth).catch((error) => {
+                    clearTimeout(connTimeout);
+                    window.showConnectionError(`[登入失敗]\n代碼: ${error.code}\n訊息: ${error.message}\n(註: 無痕模式可能阻擋匿名登入)`);
+                }); 
+            }
         });
 
-        // 💡 載入班表時顯示版本資訊
+        // 💡 修正後的核心載入邏輯：版本資訊保留，功能不流失，選定後預設自動折疊
         window.loadMainSchedule = () => {
             const sid = document.getElementById('mainScheduleSelect').value; 
-            const infoBlock = document.getElementById('scheduleInfoBlock');
+            const infoBox = document.getElementById('scheduleVersionInfo');
+            const actionContainer = document.getElementById('actionSectionsContainer');
             
             if (!sid) { 
-                document.getElementById('actionSectionsContainer').classList.add('hidden'); 
-                if (infoBlock) infoBlock.classList.add('hidden');
+                if (actionContainer) actionContainer.classList.add('hidden'); 
+                if (infoBox) infoBox.classList.add('hidden');
                 return; 
             }
             
-            const data = window.cloudSchedulesDB[sid];
-            window.allEmployees = data.employees; window.currentYear = data.year; window.currentMonth = data.month; window.daysInMonth = new Date(data.year, data.month, 0).getDate();
-            window.searchedEmployees = window.searchedEmployees.map(item => {
-                const updatedEmp = window.allEmployees.find(e => e.name === item.emp.name); return updatedEmp ? { emp: updatedEmp, isCollapsed: item.isCollapsed } : null;
-            }).filter(Boolean);
-            
-            window.updateDropdowns(); window.renderAllSchedules();
-            showToast(`✅ 已載入 ${data.year}年${data.month}月 班表！`); 
-            
-            document.getElementById('actionSectionsContainer').classList.remove('hidden');
-            window.toggleAcc('acc-select', false); 
-            window.toggleAcc('acc-search', true);  
-            
-            // 💡 更新檔案版本資訊顯示區塊
-            if (infoBlock) {
-                if (data.fileName && data.uploadTime) {
-                    document.getElementById('infoFileName').innerText = data.fileName;
-                    document.getElementById('infoUploadTime').innerText = data.uploadTime;
-                } else {
-                    document.getElementById('infoFileName').innerText = "舊版班表無檔案資訊";
-                    document.getElementById('infoUploadTime').innerText = "無紀錄";
+            try {
+                const data = window.cloudSchedulesDB[sid];
+                if (!data) throw new Error("找不到對應的班表資料");
+
+                window.allEmployees = data.employees || []; 
+                window.currentYear = data.year; 
+                window.currentMonth = data.month; 
+                if (data.year && data.month) {
+                    window.daysInMonth = new Date(data.year, data.month, 0).getDate();
                 }
-                infoBlock.classList.remove('hidden');
+                
+                // 💡 更新抽屜內的版本詳細資訊
+                if (infoBox) {
+                    document.getElementById('infoFileName').innerText = data.fileName || "早期版本 (未紀錄檔名)";
+                    document.getElementById('infoUploadTime').innerText = data.uploadTime || "早期版本 (未紀錄時間)";
+                    infoBox.classList.remove('hidden');
+                }
+
+                window.searchedEmployees = window.searchedEmployees.map(item => {
+                    const updatedEmp = window.allEmployees.find(e => e.name === item.emp.name); 
+                    return updatedEmp ? { emp: updatedEmp, isCollapsed: item.isCollapsed } : null;
+                }).filter(Boolean);
+
+                window.updateDropdowns(); 
+                window.renderAllSchedules();
+                window.renderPinnedTags();
+
+                showToast(`✅ 已載入 ${data.year}年${data.month}月 班表！`); 
+
+            } catch (err) {
+                console.error("載入班表時發生錯誤: ", err);
+                showToast("⚠️ 班表解析遇到部分錯誤", true);
+            } finally {
+                // 💡 確保下方功能選單顯示，並將「選擇月份清單（抽屜）」進行預設安全折疊收納！
+                if (actionContainer) actionContainer.classList.remove('hidden');
+                window.toggleAcc('acc-select', false); 
+                window.toggleAcc('acc-search', true);  
             }
         };
 
@@ -719,82 +837,86 @@
         window.toggleEmpCollapse = (empName) => { const item = window.searchedEmployees.find(item => item.emp.name === empName); if (item) { item.isCollapsed = !item.isCollapsed; window.renderAllSchedules(); } };
 
         window.renderAllSchedules = () => {
-            const container = document.getElementById('multiScheduleContainer'); container.innerHTML = '';
-            if(window.searchedEmployees.length === 0) return;
+            try {
+                const container = document.getElementById('multiScheduleContainer'); container.innerHTML = '';
+                if(window.searchedEmployees.length === 0) return;
 
-            let fsClass = "text-[11px]"; let cHeight = "h-24"; let dSize = "text-xs"; let wMinH = "min-h-[44px]";
-            let ntSize = "text-[9px]"; let ntTgtSize = "text-[11px]"; let ntBdgeSize = "text-[10px]";
+                let fsClass = "text-[11px]"; let cHeight = "h-24"; let dSize = "text-xs"; let wMinH = "min-h-[44px]";
+                let ntSize = "text-[9px]"; let ntTgtSize = "text-[11px]"; let ntBdgeSize = "text-[10px]";
 
-            if (window.fontSizeLevel === 1) { 
-                fsClass = "text-sm"; cHeight = "h-28"; dSize = "text-sm"; wMinH = "min-h-[52px]";
-                ntSize = "text-[10px]"; ntTgtSize = "text-xs"; ntBdgeSize = "text-[11px]";
-            } else if (window.fontSizeLevel === 2) { 
-                fsClass = "text-base"; cHeight = "h-32"; dSize = "text-base"; wMinH = "min-h-[60px]";
-                ntSize = "text-[11px]"; ntTgtSize = "text-sm"; ntBdgeSize = "text-xs";
-            }
-
-            window.searchedEmployees.forEach(item => {
-                const emp = item.emp;
-                const block = document.createElement('div');
-                block.className = "bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)] border border-gray-200 overflow-hidden animate-modal";
-
-                const header = document.createElement('div');
-                header.className = `flex justify-between items-center px-4 py-3 cursor-pointer ${item.isCollapsed ? 'bg-white' : 'bg-[#f4f8fb] border-b border-blue-100'}`;
-                header.innerHTML = `
-                    <div class="flex items-center gap-3 flex-1" onclick="window.toggleEmpCollapse('${emp.name}')">
-                        <svg class="w-5 h-5 text-[#1b759a] transform transition-transform duration-300 ${item.isCollapsed ? '-rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        <h2 class="text-[#1b759a] text-lg font-black tracking-wider">${emp.id !== '無' ? emp.id + ' ' : ''}${emp.name} <span class="text-[10px] text-gray-400 font-bold ml-2 border border-gray-200 px-1.5 py-0.5 rounded bg-white">${window.currentMonth}月</span></h2>
-                    </div>
-                    <button onclick="window.removeEmpFromQueue('${emp.name}', event)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full p-2 active:scale-90 transition"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-                `;
-                block.appendChild(header);
-
-                if (!item.isCollapsed) {
-                    const gridWrapper = document.createElement('div'); gridWrapper.className = "p-1";
-                    const daysTitle = document.createElement('div'); daysTitle.className = "grid grid-cols-7 text-center border-b border-gray-100 py-1.5 bg-white";
-                    daysTitle.innerHTML = `<div class="text-[9px] font-bold text-gray-400">SUN</div><div class="text-[9px] font-bold text-gray-400">MON</div><div class="text-[9px] font-bold text-gray-400">TUE</div><div class="text-[9px] font-bold text-gray-400">WED</div><div class="text-[9px] font-bold text-[#1b759a]">THU</div><div class="text-[9px] font-bold text-gray-400">FRI</div><div class="text-[9px] font-bold text-gray-400">SAT</div>`;
-                    gridWrapper.appendChild(daysTitle);
-
-                    const grid = document.createElement('div'); grid.className = "grid grid-cols-7 bg-gray-100 gap-px";
-                    const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
-                    for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-50 ${cHeight} opacity-30"></div>`;
-
-                    for (let d = 1; d <= window.daysInMonth; d++) {
-                        const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
-                        const dateKey = `${window.currentYear}-${window.currentMonth}-${d}-${emp.name}`;
-                        const note = window.personalSwapNotes[dateKey];
-
-                        let cellBg = "bg-white hover:bg-blue-50"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
-                        let displayHtml = `<div class="font-black ${fsClass}">${s.isMissing ? '未確認' : s.display}</div>`;
-                        
-                        let isLeaveDisplay = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
-
-                        if (s.isMissing) { mainColor = "text-gray-400"; borderStyle = "border-dashed border-gray-300 bg-gray-50"; }
-                        else if (s.isHolidayWork) { mainColor = "text-orange-600"; borderStyle = "border-orange-500 bg-orange-50"; }
-                        else if (isLeaveDisplay) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
-
-                        if (note) {
-                            if (note.status === 'red') { 
-                                cellBg = "bg-red-50 hover:bg-red-100"; 
-                                displayHtml += `<div class="${ntSize} text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1">需處理</div>`; 
-                            } 
-                            else if (note.status === 'yellow') {
-                                cellBg = "bg-yellow-50 hover:bg-yellow-100"; borderStyle = "border-yellow-400";
-                                const displayTarget = note.targetId || note.targetName;
-                                displayHtml += `<div class="${ntSize} text-yellow-700 mt-1 border-t border-yellow-300 pt-1 font-bold leading-tight flex flex-col items-center"><span class="${ntTgtSize} text-yellow-800 font-black">${displayTarget}</span><span class="bg-white px-1 rounded shadow-sm mt-0.5">${note.targetShift}</span></div>`;
-                            } else if (note.status === 'green') {
-                                cellBg = "bg-green-50 hover:bg-green-100"; borderStyle = "border-green-500 shadow-sm";
-                                const displayTarget = note.targetId || note.targetName;
-                                displayHtml = `<div class="font-bold text-[9px] text-gray-400 line-through mb-0.5">${s.display}</div><div class="font-black ${fsClass} text-green-700">${note.targetShift}</div><div class="text-[8px] text-green-600 mt-0.5 font-bold">與 ${displayTarget}</div>`;
-                            }
-                        }
-                        const safeShiftData = encodeURIComponent(JSON.stringify(s));
-                        grid.innerHTML += `<div onclick="window.openModal(${d}, '${emp.name}', '${emp.id}', '${safeShiftData}')" class="flex flex-col items-center pt-1.5 ${cHeight} cursor-pointer transition-colors ${cellBg}"><span class="${dSize} font-black text-gray-400 mb-1">${d}</span><div class="border rounded-lg px-0.5 py-1 w-[92%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center ${wMinH} shadow-sm">${displayHtml}</div></div>`;
-                    }
-                    gridWrapper.appendChild(grid); block.appendChild(gridWrapper);
+                if (window.fontSizeLevel === 1) { 
+                    fsClass = "text-sm"; cHeight = "h-28"; dSize = "text-sm"; wMinH = "min-h-[52px]";
+                    ntSize = "text-[10px]"; ntTgtSize = "text-xs"; ntBdgeSize = "text-[11px]";
+                } else if (window.fontSizeLevel === 2) { 
+                    fsClass = "text-base"; cHeight = "h-32"; dSize = "text-base"; wMinH = "min-h-[60px]";
+                    ntSize = "text-[11px]"; ntTgtSize = "text-sm"; ntBdgeSize = "text-xs";
                 }
-                container.appendChild(block);
-            });
+
+                window.searchedEmployees.forEach(item => {
+                    const emp = item.emp;
+                    const block = document.createElement('div');
+                    block.className = "bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)] border border-gray-200 overflow-hidden animate-modal";
+
+                    const header = document.createElement('div');
+                    header.className = `flex justify-between items-center px-4 py-3 cursor-pointer ${item.isCollapsed ? 'bg-white' : 'bg-[#f4f8fb] border-b border-blue-100'}`;
+                    header.innerHTML = `
+                        <div class="flex items-center gap-3 flex-1" onclick="window.toggleEmpCollapse('${emp.name}')">
+                            <svg class="w-5 h-5 text-[#1b759a] transform transition-transform duration-300 ${item.isCollapsed ? '-rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            <h2 class="text-[#1b759a] text-lg font-black tracking-wider">${emp.id !== '無' ? emp.id + ' ' : ''}${emp.name} <span class="text-[10px] text-gray-400 font-bold ml-2 border border-gray-200 px-1.5 py-0.5 rounded bg-white">${window.currentMonth}月</span></h2>
+                        </div>
+                        <button onclick="window.removeEmpFromQueue('${emp.name}', event)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full p-2 active:scale-90 transition"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    `;
+                    block.appendChild(header);
+
+                    if (!item.isCollapsed) {
+                        const gridWrapper = document.createElement('div'); gridWrapper.className = "p-1";
+                        const daysTitle = document.createElement('div'); daysTitle.className = "grid grid-cols-7 text-center border-b border-gray-100 py-1.5 bg-white";
+                        daysTitle.innerHTML = `<div class="text-[9px] font-bold text-gray-400">SUN</div><div class="text-[9px] font-bold text-gray-400">MON</div><div class="text-[9px] font-bold text-gray-400">TUE</div><div class="text-[9px] font-bold text-gray-400">WED</div><div class="text-[9px] font-bold text-[#1b759a]">THU</div><div class="text-[9px] font-bold text-gray-400">FRI</div><div class="text-[9px] font-bold text-gray-400">SAT</div>`;
+                        gridWrapper.appendChild(daysTitle);
+
+                        const grid = document.createElement('div'); grid.className = "grid grid-cols-7 bg-gray-100 gap-px";
+                        const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
+                        for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-50 ${cHeight} opacity-30"></div>`;
+
+                        for (let d = 1; d <= window.daysInMonth; d++) {
+                            const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
+                            const dateKey = `${window.currentYear}-${window.currentMonth}-${d}-${emp.name}`;
+                            const note = window.personalSwapNotes[dateKey];
+
+                            let cellBg = "bg-white hover:bg-blue-50"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
+                            let displayHtml = `<div class="font-black ${fsClass}">${s.isMissing ? '未確認' : s.display}</div>`;
+                            
+                            let isLeaveDisplay = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
+
+                            if (s.isMissing) { mainColor = "text-gray-400"; borderStyle = "border-dashed border-gray-300 bg-gray-50"; }
+                            else if (s.isHolidayWork) { mainColor = "text-orange-600"; borderStyle = "border-orange-500 bg-orange-50"; }
+                            else if (isLeaveDisplay) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
+
+                            if (note) {
+                                if (note.status === 'red') { 
+                                    cellBg = "bg-red-50 hover:bg-red-100"; 
+                                    displayHtml += `<div class="${ntSize} text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1">需處理</div>`; 
+                                } 
+                                else if (note.status === 'yellow') {
+                                    cellBg = "bg-yellow-50 hover:bg-yellow-100"; borderStyle = "border-yellow-400";
+                                    const displayTarget = note.targetId || note.targetName;
+                                    displayHtml += `<div class="${ntSize} text-yellow-700 mt-1 border-t border-yellow-300 pt-1 font-bold leading-tight flex flex-col items-center"><span class="${ntTgtSize} text-yellow-800 font-black">${displayTarget}</span><span class="bg-white px-1 rounded shadow-sm mt-0.5">${note.targetShift}</span></div>`;
+                                } else if (note.status === 'green') {
+                                    cellBg = "bg-green-50 hover:bg-green-100"; borderStyle = "border-green-500 shadow-sm";
+                                    const displayTarget = note.targetId || note.targetName;
+                                    displayHtml = `<div class="font-bold text-[9px] text-gray-400 line-through mb-0.5">${s.display}</div><div class="font-black ${fsClass} text-green-700">${note.targetShift}</div><div class="text-[8px] text-green-600 mt-0.5 font-bold">與 ${displayTarget}</div>`;
+                                }
+                            }
+                            const safeShiftData = encodeURIComponent(JSON.stringify(s));
+                            grid.innerHTML += `<div onclick="window.openModal(${d}, '${emp.name}', '${emp.id}', '${safeShiftData}')" class="flex flex-col items-center pt-1.5 ${cHeight} cursor-pointer transition-colors ${cellBg}"><span class="${dSize} font-black text-gray-400 mb-1">${d}</span><div class="border rounded-lg px-0.5 py-1 w-[92%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center ${wMinH} shadow-sm">${displayHtml}</div></div>`;
+                        }
+                        gridWrapper.appendChild(grid); block.appendChild(gridWrapper);
+                    }
+                    container.appendChild(block);
+                });
+            } catch (error) {
+                console.error("renderAllSchedules 錯誤:", error);
+            }
         };
 
         window.openModal = (d, empName, empId, dataEncoded) => {
@@ -882,80 +1004,126 @@
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
 
+        // ==========================================
+        // 💡 雲端同步與釘選公佈欄
+        // ==========================================
+
+        window.addPinTag = async (d, empName, currentShift) => {
+            if(!window.currentUser || !window.currentYear) return;
+            const docId = `${window.currentYear}-${window.currentMonth}-${d}-${empName}`;
+            await setDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId), {
+                year: window.currentYear, month: window.currentMonth, date: d, empName: empName, acknowledgedShift: currentShift
+            });
+            showToast(`📌 已將 ${empName} 釘選至名單`);
+        };
+
+        window.removePinTag = async (docId) => {
+            if(!window.currentUser) return;
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId));
+        };
+
+        window.openPinWarningModal = (docId, d, empName, oldShift, newShift) => {
+            document.getElementById('pinWarningDate').innerText = `${window.currentMonth}/${d}`;
+            document.getElementById('pinWarningName').innerText = empName;
+            document.getElementById('pinWarningOldShift').innerText = oldShift;
+            document.getElementById('pinWarningNewShift').innerText = newShift;
+            
+            const btn = document.getElementById('pinWarningConfirmBtn'); const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.onclick = async () => {
+                await setDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId), { acknowledgedShift: newShift }, { merge: true });
+                document.getElementById('pinWarningModal').classList.add('hidden'); showToast("✅ 已確認並更新釘選名單");
+            };
+            document.getElementById('pinWarningModal').classList.remove('hidden');
+        };
+        window.closePinWarningModal = () => document.getElementById('pinWarningModal').classList.add('hidden');
+
+        window.renderPinnedTags = () => {
+            try {
+                const container = document.getElementById('pinnedTagsContainer'); 
+                const listEl = document.getElementById('pinnedTags'); 
+                const monthDisplay = document.getElementById('pinMonthDisplay');
+                listEl.innerHTML = '';
+                if(!window.currentYear || !window.currentMonth) { container.classList.add('hidden'); return; }
+
+                const currentPins = Object.entries(window.userPinnedTags).filter(([docId, data]) => { return data.year === window.currentYear && data.month === window.currentMonth; });
+                if (currentPins.length === 0) { container.classList.add('hidden'); return; }
+
+                monthDisplay.innerText = `(${window.currentMonth}月份)`; container.classList.remove('hidden');
+
+                currentPins.forEach(([docId, data]) => {
+                    const emp = window.allEmployees.find(e => e.name === data.empName);
+                    let liveShift = null; let isMissing = true;
+                    if (emp && emp.shifts[data.date - 1]) { liveShift = emp.shifts[data.date - 1].display; isMissing = emp.shifts[data.date - 1].isMissing; }
+
+                    let showWarning = false; let displayShift = data.acknowledgedShift;
+                    if (!isMissing && liveShift !== null && liveShift !== data.acknowledgedShift) { showWarning = true; } 
+                    else if (liveShift === null || isMissing) { displayShift = "查無此人/沒班"; if(data.acknowledgedShift !== "查無此人/沒班") showWarning = true; }
+
+                    const dateKey = `${window.currentYear}-${window.currentMonth}-${data.date}-${data.empName}`; const note = window.personalSwapNotes[dateKey];
+                    
+                    let bgClass = "bg-gray-800"; let borderClass = "border-gray-700"; let statusHtml = ""; let nameColor = "text-blue-300";
+
+                    if (note) {
+                        const tName = note.targetId || note.targetName;
+                        if (note.status === 'green') { bgClass = "bg-green-900"; borderClass = "border-green-700"; nameColor = "text-green-200"; statusHtml = `<span class="text-[10px] text-green-300 mt-0.5 inline-block font-bold">✅ 已換為 <span class="text-white">${note.targetShift}</span> (與 ${tName})</span>`; } 
+                        else if (note.status === 'yellow') { bgClass = "bg-yellow-900"; borderClass = "border-yellow-700"; nameColor = "text-yellow-200"; statusHtml = `<span class="text-[10px] text-yellow-300 mt-0.5 inline-block font-bold">⏳ 詢問中 <span class="text-white">${note.targetShift}</span> (對象: ${tName})</span>`; } 
+                        else if (note.status === 'red') { bgClass = "bg-red-950"; borderClass = "border-red-800"; nameColor = "text-red-300"; statusHtml = `<span class="text-[10px] text-red-400 mt-0.5 inline-block font-bold">🔴 需處理此卡</span>`; }
+                    } else {
+                        const sInfo = window.customShifts[displayShift]; if (sInfo && sInfo.isRClass) { nameColor = "text-sky-300"; }
+                    }
+
+                    if (showWarning) {
+                        borderClass += " border-2 border-yellow-500 animate-warning-pulse";
+                        displayShift = `<span class="line-through text-gray-400 text-[10px]">${data.acknowledgedShift}</span> <span class="text-yellow-400 font-black">${liveShift}</span>`;
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = `${bgClass} border ${borderClass} text-white p-3 rounded-xl flex justify-between items-center shadow-lg transition-colors duration-300`;
+                    
+                    let warningBtnHtml = showWarning ? `<button onclick="window.openPinWarningModal('${docId}', ${data.date}, '${data.empName}', '${data.acknowledgedShift}', '${liveShift}')" class="bg-yellow-500 hover:bg-yellow-400 text-yellow-900 rounded-lg px-2 py-1.5 text-xs font-black shadow active:scale-90 transition animate-bounce">⚠️ 變動</button>` : '';
+
+                    item.innerHTML = `
+                        <div class="flex-1 flex flex-col justify-center">
+                            <div class="text-sm font-bold tracking-wide leading-tight">
+                                ${window.currentMonth}/${data.date} ｜ <span class="${nameColor}">${data.empName}</span> ｜ ${displayShift}
+                            </div>
+                            ${statusHtml}
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                            ${warningBtnHtml}
+                            <button onclick="window.openReadOnlySchedule('${data.empName}')" class="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg text-sm active:scale-90 transition border border-white/10">📅</button>
+                            <button onclick="window.removePinTag('${docId}')" class="bg-black/30 hover:bg-black/50 p-1.5 rounded-lg text-sm active:scale-90 transition text-gray-400 hover:text-white">✕</button>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+            } catch (err) {
+                console.error("renderPinnedTags 錯誤:", err);
+            }
+        };
+
         window.openReadOnlySchedule = (empName) => {
             const emp = window.allEmployees.find(e => e.name === empName);
-            if (!emp) return;
-
+            if (!emp) { showToast("❌ 當前月份查無此人", true); return; }
             document.getElementById('roModalTitle').innerText = `${emp.id !== '無' ? emp.id + ' ' : ''}${emp.name}`;
             const pinBtn = document.getElementById('roModalPinBtn');
-            pinBtn.onclick = () => { 
-                window.addToQueueByEmp(emp); 
-                window.closeReadOnlySchedule();
-            };
-
-            const grid = document.getElementById('roModalGrid');
-            grid.innerHTML = '';
-            
-            let fsClass = "text-[11px]"; let cHeight = "h-20"; let dSize = "text-[10px]"; let wMinH = "min-h-[40px]";
-            if (window.fontSizeLevel === 1) { fsClass = "text-sm"; cHeight = "h-24"; dSize = "text-xs"; wMinH = "min-h-[48px]"; } 
-            else if (window.fontSizeLevel === 2) { fsClass = "text-base"; cHeight = "h-28"; dSize = "text-sm"; wMinH = "min-h-[56px]"; }
-
+            pinBtn.onclick = () => { window.addToQueueByEmp(emp); window.closeReadOnlySchedule(); };
+            const grid = document.getElementById('roModalGrid'); grid.innerHTML = '';
             const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
-            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 ${cHeight} opacity-30"></div>`;
-
+            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 h-20 opacity-30"></div>`;
             for (let d = 1; d <= window.daysInMonth; d++) {
                 const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
-                const dateKey = `${window.currentYear}-${window.currentMonth}-${d}-${emp.name}`;
-                const note = window.personalSwapNotes[dateKey];
-
                 let cellBg = "bg-white"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
-                let displayHtml = `<div class="font-black ${fsClass}">${s.isMissing ? '未確認' : s.display}</div>`;
-                
-                let isLeaveDisplay = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
-
+                let displayHtml = `<div class="font-black text-[11px]">${s.isMissing ? '未確認' : s.display}</div>`;
                 if (s.isMissing) { mainColor = "text-gray-400"; borderStyle = "border-dashed border-gray-300 bg-gray-50"; }
                 else if (s.isHolidayWork) { mainColor = "text-orange-600"; borderStyle = "border-orange-500 bg-orange-50"; }
-                else if (isLeaveDisplay) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
-
-                if (note) {
-                    if (note.status === 'red') { cellBg = "bg-red-50"; displayHtml += `<div class="text-[9px] text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1 leading-tight">需處理</div>`; } 
-                    else if (note.status === 'yellow') {
-                        cellBg = "bg-yellow-50"; borderStyle = "border-yellow-400";
-                        const displayTarget = note.targetId || note.targetName;
-                        displayHtml += `<div class="text-[9px] text-yellow-700 mt-1 border-t border-yellow-300 pt-0.5 font-bold leading-none flex flex-col items-center"><span class="text-[10px] text-yellow-800 font-black">${displayTarget}</span></div>`;
-                    } else if (note.status === 'green') {
-                        cellBg = "bg-green-50"; borderStyle = "border-green-500 shadow-sm";
-                        const displayTarget = note.targetId || note.targetName;
-                        displayHtml = `<div class="font-bold text-[8px] text-gray-400 line-through mb-0.5 leading-none">${s.display}</div><div class="font-black ${fsClass} text-green-700 leading-none">${note.targetShift}</div>`;
-                    }
-                }
-                
-                grid.innerHTML += `<div class="flex flex-col items-center pt-1 ${cHeight} border-b border-r border-gray-200 ${cellBg}"><span class="${dSize} font-black text-gray-400 mb-1">${d}</span><div class="border rounded px-0.5 py-1 w-[90%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center ${wMinH} shadow-sm">${displayHtml}</div></div>`;
+                else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
+                grid.innerHTML += `<div class="flex flex-col items-center pt-1 h-20 border-b border-r border-gray-200 ${cellBg}"><span class="text-[10px] font-black text-gray-400 mb-1">${d}</span><div class="border rounded px-0.5 py-1 w-[90%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center min-h-[40px] shadow-sm">${displayHtml}</div></div>`;
             }
             document.getElementById('readOnlyScheduleModal').classList.remove('hidden');
         };
 
-        window.closeReadOnlySchedule = () => {
-            document.getElementById('readOnlyScheduleModal').classList.add('hidden');
-        };
-
-        window.addPinTag = (d, empName, shiftDisp, isR, customClasses = null) => {
-            const tid = `pin-${d}-${encodeURIComponent(empName)}`;
-            if (document.getElementById(tid)) return;
-            document.getElementById('pinnedTagsContainer').classList.remove('hidden');
-            
-            let colorClass = isR ? "text-sky-300" : "text-blue-300";
-            if (customClasses && customClasses.nameClass) {
-                colorClass = customClasses.nameClass;
-            }
-
-            const p = document.createElement('div'); p.id = tid; 
-            p.className = "bg-gray-900 border border-gray-700 text-white p-3 rounded-xl flex justify-between items-center shadow-lg animate-modal";
-            p.innerHTML = `<span class="text-xs font-bold tracking-wide">${window.currentMonth}/${d} ｜ <span class="${colorClass}">${empName}</span> ｜ ${shiftDisp}</span><button onclick="this.parentElement.remove(); if(document.getElementById('pinnedTags').children.length===0) document.getElementById('pinnedTagsContainer').classList.add('hidden');" class="text-gray-400 hover:text-white p-1 font-bold bg-gray-800 rounded-lg active:scale-90 transition">✕</button>`;
-            document.getElementById('pinnedTags').appendChild(p); 
-            showToast(`📌 已將 ${empName} 釘選至公佈欄`);
-        };
-
+        window.closeReadOnlySchedule = () => document.getElementById('readOnlyScheduleModal').classList.add('hidden');
 
         window.setSwapNote = async (dateKey, statusStr) => {
             if(!window.currentUser) return;
@@ -1028,7 +1196,7 @@
                         <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-blue-50 hover:bg-blue-100 text-[#1b759a] border border-blue-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
                             <span class="text-sm leading-none">📅</span>
                         </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${s}', false)" class="text-[10px] bg-[#1b759a] text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${s}')" class="text-[10px] bg-[#1b759a] text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
                             📌
                         </button>
                     </div>`;
@@ -1062,7 +1230,7 @@
                         <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
                             <span class="text-sm leading-none">📅</span>
                         </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}', true)" class="text-[10px] bg-sky-500 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-sky-500 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
                             📌
                         </button>
                     </div>`;
@@ -1145,7 +1313,7 @@
                         <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white/20 hover:bg-white/30 ${textClass} border border-white/20 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
                             <span class="text-sm leading-none">📅</span>
                         </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}', false, {nameClass: '${nameClass}'})" class="text-[10px] bg-black/30 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
+                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-black/30 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
                             📌
                         </button>
                     </div>`;
@@ -1172,10 +1340,10 @@
             showToast("⏳ 正在啟用分頁網格解析引擎更新底層...");
 
             try {
+                const targetFileName = window.selectedPdfFile.name;
                 const buf = await window.selectedPdfFile.arrayBuffer(); 
                 window.pdfDocument = await pdfjsLib.getDocument({ data: buf }).promise;
-                await buildDbAndSync();
-                
+                await buildDbAndSync(targetFileName);
                 document.getElementById('pdfFileNameDisplay').innerText = "1. 點擊此處選擇 PDF 檔案";
                 window.selectedPdfFile = null; btn.innerText = "2. 確認上傳並解析";
                 btn.className = "w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm";
@@ -1186,7 +1354,7 @@
             }
         };
 
-        async function buildDbAndSync() {
+        async function buildDbAndSync(fileNameString) {
             window.allEmployees = [];
             const skip = ["早場", "早塔", "午場", "午塔", "夜場", "夜塔", "日段", "日副", "段長", "副段", "約休", "日間", "家庭", "備註", "春節", "國假", "特休"];
             let dateFound = false;
@@ -1271,21 +1439,22 @@
             if (window.allEmployees.length > 0) {
                 const sid = `${window.currentYear}-${window.currentMonth}`;
                 
-                // 💡 取得當下時間與檔案名稱
                 const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                const h = String(now.getHours()).padStart(2, '0');
+                const min = String(now.getMinutes()).padStart(2, '0');
                 const ampm = now.getHours() >= 12 ? '下午' : '上午';
-                let h = now.getHours() % 12; h = h ? h : 12;
-                const timeString = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${ampm} ${String(h).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-                const fName = window.selectedPdfFile ? window.selectedPdfFile.name : "未知檔案.pdf";
+                const formattedTime = `${y}/${m}/${d} ${ampm} ${h}:${min}`;
 
                 try {
-                    // 💡 將 fileName 與 uploadTime 一併存入雲端
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sid), { 
                         year: window.currentYear, 
                         month: window.currentMonth, 
                         employees: window.allEmployees,
-                        fileName: fName,
-                        uploadTime: timeString
+                        fileName: fileNameString,
+                        uploadTime: formattedTime
                     });
                     showToast(`✅ 新底層更新成功！(共解析 ${window.allEmployees.length} 人)`);
                 } catch(e) { showToast(`✅ 本機更新成功，但無法存入雲端`, true); }
