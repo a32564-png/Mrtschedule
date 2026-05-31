@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>換班小幫手 v3.3</title>
+    <title>換班小幫手 v3.4</title>
     
     <link class="manifest" href="manifest.json">
     <meta name="theme-color" content="#1b759a">
@@ -55,7 +55,7 @@
             <div class="p-3 flex items-center justify-between text-white cursor-default">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v3.3)</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v3.4)</h1>
                 </div>
                 <button onclick="window.toggleFontSize()" class="p-1.5 bg-white/20 rounded-lg active:scale-90 transition flex items-center justify-center shadow-sm border border-white/10">
                     <span class="font-black text-sm tracking-wider px-1">Aa</span>
@@ -1419,16 +1419,27 @@
                         if (displayId === "無" && tags.length > 0) displayId = tags[0]; 
 
                         let shifts = []; let k = nameIdx + 1;
-                        while (shifts.length < window.daysInMonth && k < row.length) {
-                            let st = row[k].text; k++;
+                        
+                        // 💡 新增：把後面所有文字先收集起來，遇到空白就「強制切開」，防止兩天班別黏在一起
+                        let allShiftTexts = [];
+                        for (let tIdx = k; tIdx < row.length; tIdx++) {
+                            if (row[tIdx].text) {
+                                allShiftTexts.push(...row[tIdx].text.trim().split(/\s+/));
+                            }
+                        }
+                        
+                        // 用切好的文字陣列來排班
+                        let tokenIdx = 0;
+                        while (shifts.length < window.daysInMonth && tokenIdx < allShiftTexts.length) {
+                            let st = allShiftTexts[tokenIdx]; tokenIdx++;
+                            // 過濾掉時數數字
                             if (/^\d+(\.\d+)?$/.test(st) && parseFloat(st) >= 5 && parseFloat(st) <= 24) continue; 
                             if (st === "" || st === " ") continue;
                             
-                                                        let disp = st, h = false, l = false;
+                            let disp = st, h = false, l = false;
                             if (/R1[A-Z]出\/?(.+?)(約)?$/.test(st)) { disp = st.match(/R1[A-Z]出\/?(.+?)(約)?$/)[1]; h = true; }
                             else if (/R出\/?(.+?)(約)?$/.test(st)) { disp = st.match(/R出\/?(.+?)(約)?$/)[1]; h = true; }
                             else if (/^(R|R1[A-Z]|休.*|事.*|病.*|喪.*|家照.*|補.*|約休.*|約補.*)$/.test(st)) l = true;
-
                             
                             shifts.push({ raw: st, display: disp, isHolidayWork: h, isLeave: l });
                         }
