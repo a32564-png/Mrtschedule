@@ -77,7 +77,7 @@
                         </select>
                     </div>
 
-                    <!-- 💡 版本資訊區塊放回折疊區塊內部，跟著選單抽屜一起收起與打開 -->
+                    <!-- 版本資訊區塊 -->
                     <div id="scheduleVersionInfo" class="hidden px-4 pb-4 bg-white relative z-30">
                         <div class="bg-gray-50 border border-blue-100 rounded-xl p-3.5 shadow-sm text-xs text-gray-600 relative overflow-hidden">
                             <div class="absolute top-0 left-0 w-1 h-full bg-[#1b759a]"></div>
@@ -378,7 +378,7 @@
         </button>
     </nav>
 
-    <!-- 管理員密碼Modal -->
+    <!-- 各種 Modal (密碼、警告、唯讀班表、換班等) 與舊版相同，保持穩定運作 -->
     <div id="pwdModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">系統管理員解鎖</h3>
@@ -393,7 +393,6 @@
         </div>
     </div>
 
-    <!-- 📌 釘選變動通知 Modal -->
     <div id="pinWarningModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center border-t-8 border-yellow-400">
             <div class="text-4xl mb-2">⚠️</div>
@@ -423,7 +422,6 @@
         </div>
     </div>
 
-    <!-- 唯讀班表 modal -->
     <div id="readOnlyScheduleModal" class="hidden fixed inset-0 bg-black/70 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-modal flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-5 bg-[#f4f8fb] border-b border-blue-100">
@@ -452,7 +450,6 @@
         </div>
     </div>
 
-    <!-- 換班詳細與編輯 modal -->
     <div id="shiftModal" class="hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-modal overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
@@ -468,7 +465,6 @@
         </div>
     </div>
 
-    <!-- 換班確認 modal -->
     <div id="swapConfirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">確定是這張卡嗎？</h3>
@@ -484,7 +480,6 @@
         </div>
     </div>
 
-    <!-- 刪除/警告確認 modal -->
     <div id="confirmModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal">
             <h3 class="text-xl font-black text-red-500 mb-2 flex items-center gap-2">⚠️ <span id="confirmTitle">確認</span></h3>
@@ -756,7 +751,6 @@
             }
         });
 
-        // 💡 修正後的核心載入邏輯：版本資訊保留，功能不流失，選定後預設自動折疊
         window.loadMainSchedule = () => {
             const sid = document.getElementById('mainScheduleSelect').value; 
             const infoBox = document.getElementById('scheduleVersionInfo');
@@ -779,7 +773,6 @@
                     window.daysInMonth = new Date(data.year, data.month, 0).getDate();
                 }
                 
-                // 💡 更新抽屜內的版本詳細資訊
                 if (infoBox) {
                     document.getElementById('infoFileName').innerText = data.fileName || "早期版本 (未紀錄檔名)";
                     document.getElementById('infoUploadTime').innerText = data.uploadTime || "早期版本 (未紀錄時間)";
@@ -801,7 +794,6 @@
                 console.error("載入班表時發生錯誤: ", err);
                 showToast("⚠️ 班表解析遇到部分錯誤", true);
             } finally {
-                // 💡 確保下方功能選單顯示，並將「選擇月份清單（抽屜）」進行預設安全折疊收納！
                 if (actionContainer) actionContainer.classList.remove('hidden');
                 window.toggleAcc('acc-select', false); 
                 window.toggleAcc('acc-search', true);  
@@ -1003,10 +995,6 @@
             document.getElementById('shiftModal').classList.remove('hidden');
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
-
-        // ==========================================
-        // 💡 雲端同步與釘選公佈欄
-        // ==========================================
 
         window.addPinTag = async (d, empName, currentShift) => {
             if(!window.currentUser || !window.currentYear) return;
@@ -1332,12 +1320,13 @@
             btn.innerText = "2. 確認上傳並解析";
         };
 
+        // ========== v3.4 核心升級：全新解析引擎 ==========
         window.startPdfUpload = async () => {
             if (!window.selectedPdfFile) return;
             const btn = document.getElementById('pdfUploadBtn');
             btn.disabled = true; btn.innerText = "⏳ 上傳與解析中...";
             btn.className = "w-full bg-gray-400 text-white font-bold py-3 rounded-xl shadow-inner cursor-wait text-sm";
-            showToast("⏳ 正在啟用分頁網格解析引擎更新底層...");
+            showToast("⏳ 正在啟用最新 v3.5 網格解析引擎...");
 
             try {
                 const targetFileName = window.selectedPdfFile.name;
@@ -1364,9 +1353,11 @@
                 const c = await p.getTextContent();
                 let pageItems = c.items.map(it => ({ text: it.str.trim(), x: it.transform[4], y: it.transform[5] })).filter(it => it.text);
                 
+                // 💡 改變 1: 放大排列的 Y 容錯率 (6 -> 12)，同一個格子的字如果有換行，確保上面的排在前面
                 pageItems.sort((a, b) => {
-                    if (Math.abs(a.y - b.y) > 6) return b.y - a.y;
-                    return a.x - b.x;
+                    if (Math.abs(a.y - b.y) > 12) return b.y - a.y; 
+                    if (Math.abs(a.x - b.x) > 2) return a.x - b.x; 
+                    return b.y - a.y; 
                 });
 
                 if (!dateFound) {
@@ -1380,10 +1371,11 @@
                     }
                 }
 
+                // 💡 改變 2: 放大每一行抓取的 Y 容錯率 (8 -> 12)，防止稍微沒有對齊的字被踢出該行
                 let rows = []; let currentRow = []; let currentY = null;
                 for (let obj of pageItems) {
                     if (currentY === null) { currentY = obj.y; currentRow.push(obj); } 
-                    else if (Math.abs(obj.y - currentY) <= 8) { currentRow.push(obj); } 
+                    else if (Math.abs(obj.y - currentY) <= 12) { currentRow.push(obj); } 
                     else { rows.push(currentRow); currentRow = [obj]; currentY = obj.y; }
                 }
                 if (currentRow.length > 0) rows.push(currentRow);
@@ -1420,15 +1412,30 @@
 
                         let shifts = []; let k = nameIdx + 1;
                         
-                        // 💡 新增：把後面所有文字先收集起來，遇到空白就「強制切開」，防止兩天班別黏在一起
+                        // 💡 改變 3: 加入「自動黏合膠水」，判斷在同一個格子裡被換行的文字
                         let allShiftTexts = [];
+                        let cellGroups = [];
+                        let lastX = -999;
+                        
                         for (let tIdx = k; tIdx < row.length; tIdx++) {
-                            if (row[tIdx].text) {
-                                allShiftTexts.push(...row[tIdx].text.trim().split(/\s+/));
+                            let item = row[tIdx];
+                            if (!item.text.trim()) continue;
+                            
+                            // 只要兩個字水平距離相差不到 18 (代表在同一格)，就把他們黏進同一個群組
+                            if (Math.abs(item.x - lastX) < 18) {
+                                cellGroups[cellGroups.length - 1].push(item.text.trim());
+                            } else {
+                                cellGroups.push([item.text.trim()]);
+                                lastX = item.x;
                             }
                         }
                         
-                        // 用切好的文字陣列來排班
+                        // 將同一個格子的字黏好，再處理因為排版太擠被併在一起的錯誤
+                        for (let group of cellGroups) {
+                            let combinedText = group.join(''); 
+                            allShiftTexts.push(...combinedText.split(/\s+/));
+                        }
+                        
                         let tokenIdx = 0;
                         while (shifts.length < window.daysInMonth && tokenIdx < allShiftTexts.length) {
                             let st = allShiftTexts[tokenIdx]; tokenIdx++;
@@ -1475,6 +1482,7 @@
                 showToast(`❌ 解析失敗：找不到任何員工資料，請確認 PDF 格式`, true);
             }
         }
+        // ==========================================
 
         window.deleteCloudSchedule = () => {
             const sid = document.getElementById('cloudSchedules').value;
