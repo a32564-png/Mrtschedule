@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>換班小幫手 v3.4</title>
+    <title>換班小幫手 v3.5</title>
     
     <link class="manifest" href="manifest.json">
     <meta name="theme-color" content="#1b759a">
@@ -12,10 +12,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF 解析器 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-    </script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+    <!-- Excel 解析器 (SheetJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         ::-webkit-scrollbar { display: none; }
         .day-cell { -webkit-tap-highlight-color: transparent; }
@@ -28,22 +30,20 @@
         .custom-scrollbar::-webkit-scrollbar { display: block; width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        
-        @keyframes pulse-border { 0% { border-color: rgba(234, 179, 8, 1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(234, 179, 8, 0); } 100% { border-color: rgba(234, 179, 8, 1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); } }
-        .animate-warning-pulse { animation: pulse-border 2s infinite; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased pb-28">
 
+    <!-- 載入中畫面 -->
     <div id="loadingOverlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
         <div id="loadingSpinner" class="w-12 h-12 border-4 border-blue-100 border-t-[#1b759a] rounded-full animate-spin mb-4"></div>
         <p id="loadingText" class="text-[#1b759a] font-bold animate-pulse">連線至雲端系統...</p>
-        
         <div id="loadingError" class="hidden flex-col items-center mt-4 px-6 w-full max-w-sm">
             <p id="loadingErrorMsg" class="text-red-500 text-xs text-center font-bold bg-red-50 p-3 rounded-xl border border-red-200 break-words w-full"></p>
         </div>
     </div>
 
+    <!-- 提示訊息 -->
     <div id="toastMsg" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[110] hidden flex-col items-center w-11/12 max-w-sm pointer-events-none">
         <div id="toastContent" class="bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-center w-full">提示訊息</div>
     </div>
@@ -55,7 +55,7 @@
             <div class="p-3 flex items-center justify-between text-white cursor-default">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📋</span>
-                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v3.4)</h1>
+                    <h1 class="text-lg font-black tracking-wide">換班小幫手 (v3.5)</h1>
                 </div>
                 <button onclick="window.toggleFontSize()" class="p-1.5 bg-white/20 rounded-lg active:scale-90 transition flex items-center justify-center shadow-sm border border-white/10">
                     <span class="font-black text-sm tracking-wider px-1">Aa</span>
@@ -66,18 +66,28 @@
         <div class="bg-white border-b border-gray-200 relative z-40 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)]">
             <div class="border-b border-gray-100 bg-white">
                 <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-select')">
-                    <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>📅</span> 選擇班表</label>
+                    <div id="mainScheduleLabel" class="text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-1.5">
+                        <span>📅</span> 選擇班表
+                        <div id="selectedScheduleBadges" class="hidden flex gap-1.5 ml-1">
+                            <span id="badgeMonth" class="bg-gray-100 text-gray-600 border border-gray-200 text-[10px] px-2 py-0.5 rounded shadow-sm font-bold tracking-widest"></span>
+                            <span id="badgeType" class="text-white text-[10px] px-2 py-0.5 rounded shadow-sm font-bold tracking-wider"></span>
+                        </div>
+                    </div>
                     <svg id="icon-acc-select" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
                 
                 <div id="acc-select" class="transition-all duration-300" style="max-height: 2000px; opacity: 1; overflow: visible;">
                     <div class="px-4 pb-2 pt-2">
-                        <select id="mainScheduleSelect" onchange="window.loadMainSchedule()" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 shadow-inner text-center">
+                        <select id="mainScheduleSelect" onchange="window.handleMonthSelect()" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 shadow-inner text-center">
                             <option value="">載入中...</option>
                         </select>
                     </div>
 
-                    <!-- 版本資訊區塊 -->
+                    <div id="versionToggleContainer" class="flex gap-2 mt-1 mb-3 px-4 hidden">
+                        <button id="btnViewPDF" onclick="window.switchViewType('PDF')" class="flex-1 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm bg-gray-100 text-gray-400 border border-gray-200 active:scale-95">📄 PDF 版</button>
+                        <button id="btnViewEXCEL" onclick="window.switchViewType('EXCEL')" class="flex-1 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm bg-gray-100 text-gray-400 border border-gray-200 active:scale-95">📊 EXCEL 版</button>
+                    </div>
+
                     <div id="scheduleVersionInfo" class="hidden px-4 pb-4 bg-white relative z-30">
                         <div class="bg-gray-50 border border-blue-100 rounded-xl p-3.5 shadow-sm text-xs text-gray-600 relative overflow-hidden">
                             <div class="absolute top-0 left-0 w-1 h-full bg-[#1b759a]"></div>
@@ -100,7 +110,7 @@
                 </div>
             </div>
 
-            <!-- ========== 下方所有的查詢與功能區塊 ========== -->
+            <!-- 下方查詢功能區塊 -->
             <div id="actionSectionsContainer" class="hidden">
                 <div class="border-b border-gray-100 bg-white">
                     <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition" onclick="window.toggleAcc('acc-search')">
@@ -126,7 +136,6 @@
                         <div class="px-4 pb-5 pt-2">
                             <div class="flex flex-row items-center justify-between gap-2 w-full">
                                 <select id="queryDate" class="border border-gray-300 rounded-xl px-2 py-3 w-[110px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
-                                
                                 <div class="relative flex-1 min-w-0">
                                     <input type="text" id="queryShift" placeholder="輸入班別" autocomplete="off" onfocus="window.showCustomDropdown()" oninput="window.filterCustomDropdown()" class="w-full border border-gray-300 rounded-xl px-3 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center">
                                     <div id="customShiftDropdown" class="absolute top-full left-0 w-full bg-white border border-gray-200 shadow-2xl rounded-xl mt-1 max-h-48 overflow-y-auto z-[100] hidden divide-y divide-gray-100"></div>
@@ -147,11 +156,9 @@
                         <div class="px-4 pb-5 pt-2">
                             <div class="flex items-center justify-between gap-1 w-full">
                                 <select id="queryTimeDate" class="border border-gray-300 rounded-xl px-1 py-3 w-[75px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
-                                <select id="queryTimeStart" onchange="window.updateTimeEndOptions()" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center">
-                                </select>
+                                <select id="queryTimeStart" onchange="window.updateTimeEndOptions()" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center"></select>
                                 <span class="font-black text-gray-400 text-xs shrink-0">~</span>
-                                <select id="queryTimeEnd" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center">
-                                </select>
+                                <select id="queryTimeEnd" class="flex-1 min-w-0 border border-gray-300 rounded-xl px-0 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-[13px] font-bold shadow-inner text-center"></select>
                                 <button onclick="window.executeTimeSlotQuery()" class="bg-[#1b759a] text-white w-[60px] shrink-0 py-3 rounded-xl hover:bg-blue-700 active:scale-95 transition text-[13px] font-bold shadow-md">找卡</button>
                             </div>
                             <div id="queryTimeResults" class="flex flex-col gap-2 mt-3 empty:hidden max-h-[40vh] overflow-y-auto custom-scrollbar pr-1"></div>
@@ -168,11 +175,11 @@
                         <div class="px-4 pb-5 pt-2">
                             <div class="flex flex-row items-center justify-between gap-2 w-full">
                                 <select id="queryRDate" class="border border-gray-300 rounded-xl px-2 py-3 w-[110px] shrink-0 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center"></select>
-                                
                                 <select id="queryRType" class="flex-1 border border-gray-300 rounded-xl px-3 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1b759a] text-sm font-bold shadow-inner text-center">
                                     <option value="早">早班</option>
                                     <option value="午">午班</option>
                                     <option value="夜">夜班</option>
+                                    <option value="其他">其他職務</option>
                                 </select>
                                 <button onclick="window.executeRQuery()" class="bg-sky-600 text-white w-[75px] shrink-0 py-3 rounded-xl hover:bg-sky-700 active:scale-95 transition text-sm font-bold shadow-md">找休假</button>
                             </div>
@@ -183,7 +190,6 @@
             </div>
         </div>
 
-        <!-- 📌 釘選口袋名單區塊 -->
         <div id="pinnedTagsContainer" class="px-3 mt-4 hidden relative z-20">
             <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
                 <div class="mb-3">
@@ -218,9 +224,8 @@
                 </div>
                 <div id="exportHelpBody" class="px-4 overflow-hidden transition-all duration-300 bg-white" style="max-height: 0px; opacity: 0;">
                     <div class="py-4 space-y-4 text-sm text-gray-600 leading-relaxed font-medium">
-                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶 (建議使用 Safari 開啟)</span></p><p>點擊下方「匯出檔案」後，手機會跳出下載提示。下載完成後點開它，系統會問<span class="text-blue-600 font-bold">「要加入行事曆嗎？」</span>，點擊<span class="font-bold text-gray-800">「加入」</span>就瞬間完成囉！</p></div>
-                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊「匯出檔案」下載後，直接點開該檔案，<span class="text-blue-600 font-bold">Google 日曆</span>就會自動啟動並問你要不要匯入，按下<span class="font-bold text-gray-800">「確認」</span>即可！如果顯示無法開啟，請使用「Email 寄給自己」的方式在 Gmail 內點開即可成功匯入。</p></div>
-                        <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs"><p class="font-bold text-yellow-800 mb-1">💡 溫馨小建議</p><p class="text-yellow-700">怕行事曆跟私事混在一起太亂嗎？建議先在手機日曆裡新增一個叫做<span class="font-bold">「捷運班表」</span>的分類，匯入時選它。以後不想看，只要取消打勾畫面就乾淨囉！</p></div>
+                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🍎 <span class="border-b-2 border-red-200">蘋果 iPhone 用戶</span></p><p>點擊下方匯出，下載後點開，點擊<span class="font-bold text-gray-800">「加入」</span>即可！</p></div>
+                        <div><p class="font-black text-gray-800 mb-1 flex items-center gap-1">🤖 <span class="border-b-2 border-green-200">安卓 Android 用戶</span></p><p>點擊下載後直接點開，<span class="text-blue-600 font-bold">Google 日曆</span>會自動問你是否匯入。</p></div>
                     </div>
                 </div>
             </div>
@@ -228,7 +233,7 @@
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-5">
                 <h3 class="text-sm font-black text-[#1b759a] mb-3">步驟 1：選擇要匯出的月份</h3>
                 <select id="exportCloudSchedules" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-gray-50 font-bold text-gray-700 mb-6 text-center">
-                    <option value="">請先至「班表作業」上傳班表</option>
+                    <option value="">請先至「班表作業」確認有班表</option>
                 </select>
 
                 <h3 class="text-sm font-black text-[#1b759a] mb-3">步驟 2：查詢名單</h3>
@@ -263,13 +268,13 @@
         </div>
     </div>
 
-    <!-- ========== 視圖 3：任務庫設定 ========== -->
+    <!-- ========== 視圖 3：任務庫設定 (後台管理) ========== -->
     <div id="view-settings" class="hidden">
         <div class="bg-[#1b759a] shadow-sm sticky top-0 z-20">
             <div class="p-3 flex justify-between items-center text-white cursor-default">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">⚙️</span>
-                    <h1 class="text-lg font-black tracking-wide">任務卡設定</h1>
+                    <h1 class="text-lg font-black tracking-wide">後台管理與設定</h1>
                 </div>
                 <button onclick="window.toggleAdminLock()" class="text-xl active:scale-90 transition p-1 hover:bg-white/20 rounded-lg" id="adminLockIcon">🔒</button>
             </div>
@@ -279,38 +284,63 @@
             
             <div id="fileAdminSection" class="hidden bg-white border border-blue-100 rounded-2xl shadow-sm mb-4 overflow-hidden">
                 <div class="p-4 flex justify-between items-center cursor-pointer active:bg-blue-50 transition" onclick="window.toggleAcc('acc-admin-file')">
-                    <label class="block text-[15px] font-black text-[#1b759a] pointer-events-none flex items-center gap-2"><span>☁️</span> 雲端班表管理</label>
+                    <label class="block text-[15px] font-black text-[#1b759a] pointer-events-none flex items-center gap-2"><span>☁️</span> 雙軌雲端班表管理</label>
                     <svg id="icon-acc-admin-file" class="w-5 h-5 text-[#1b759a] transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
                 <div id="acc-admin-file" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
-                    <div class="px-5 pb-5 pt-3 bg-blue-50/50 border-t border-blue-50">
+                    
+                    <!-- PDF 管理專區 -->
+                    <div class="px-5 pb-5 pt-3 bg-red-50/30 border-t border-red-100">
+                        <p class="text-xs font-black text-red-600 mb-3 flex items-center gap-1">📄 PDF 班表專區</p>
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-xs font-bold text-[#1b759a] mb-2 uppercase">🗑️ 刪除舊班表</label>
+                                <label class="block text-[10px] font-bold text-red-400 mb-1">🗑️ 刪除現有 PDF 版</label>
                                 <div class="flex gap-2">
-                                    <select id="cloudSchedules" class="flex-1 border border-blue-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none bg-white font-bold text-gray-700">
-                                        <option value="">載入中...</option>
-                                    </select>
-                                    <button onclick="window.deleteCloudSchedule()" class="bg-white text-red-500 border border-red-100 px-4 py-2.5 rounded-xl hover:bg-red-50 active:scale-95 transition flex items-center justify-center shadow-sm">
-                                        <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
+                                    <select id="cloudSchedulesPDF" class="flex-1 border border-red-200 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-bold text-gray-700"></select>
+                                    <button onclick="window.deleteCloudSchedule('PDF')" class="bg-white text-red-500 border border-red-200 px-4 py-2.5 rounded-xl hover:bg-red-50 active:scale-95 transition shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
                                 </div>
                             </div>
-                            <div class="border-t border-blue-200 pt-3">
-                                <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase">📄 上傳新班表 PDF</label>
+                            <div class="border-t border-red-100 pt-3 relative">
+                                <label class="block text-[10px] font-bold text-red-400 mb-1">📤 上傳新 PDF 版</label>
                                 <div class="flex flex-col gap-2">
-                                    <label class="block w-full text-center border-2 border-dashed border-blue-300 bg-white hover:bg-blue-50 text-[#1b759a] font-bold py-3 rounded-xl cursor-pointer transition px-3">
-                                        <span id="pdfFileNameDisplay" class="text-xs block truncate w-full">1. 點擊選擇 PDF 檔案</span>
-                                        <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="window.handleFileSelect(event)">
+                                    <label for="pdfInput" class="block w-full text-center border-2 border-dashed border-red-300 bg-white hover:bg-red-50 text-red-500 font-bold py-3 rounded-xl cursor-pointer transition px-3">
+                                        <span id="pdfFileNameDisplay" class="text-xs block truncate w-full">點擊選擇 PDF 檔案</span>
                                     </label>
-                                    <button id="pdfUploadBtn" onclick="window.startPdfUpload()" disabled class="w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm">2. 確認上傳並解析</button>
+                                    <input type="file" id="pdfInput" accept=".pdf,application/pdf" style="position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; z-index: -1;" onchange="window.handlePdfSelect(event)">
+                                    <button id="pdfUploadBtn" onclick="window.startPdfUpload()" disabled class="w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm">確認上傳並解析</button>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- EXCEL 管理專區 -->
+                    <div class="px-5 pb-5 pt-4 bg-green-50/30 border-t border-green-100">
+                        <p class="text-xs font-black text-green-600 mb-3 flex items-center gap-1">📊 EXCEL 班表專區</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-green-500 mb-1">🗑️ 刪除現有 EXCEL 版</label>
+                                <div class="flex gap-2">
+                                    <select id="cloudSchedulesEXCEL" class="flex-1 border border-green-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-bold text-gray-700"></select>
+                                    <button onclick="window.deleteCloudSchedule('EXCEL')" class="bg-white text-green-600 border border-green-300 px-4 py-2.5 rounded-xl hover:bg-green-50 active:scale-95 transition shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                </div>
+                            </div>
+                            <div class="border-t border-green-200 pt-3 relative">
+                                <label class="block text-[10px] font-bold text-green-500 mb-1">📤 上傳新 EXCEL 版</label>
+                                <div class="flex flex-col gap-2">
+                                    <label for="excelInput" class="block w-full text-center border-2 border-dashed border-green-400 bg-white hover:bg-green-50 text-green-600 font-bold py-3 rounded-xl cursor-pointer transition px-3">
+                                        <span id="excelFileNameDisplay" class="text-xs block truncate w-full">點擊選擇 EXCEL 檔案</span>
+                                    </label>
+                                    <input type="file" id="excelInput" style="position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; z-index: -1;" onchange="window.handleExcelSelect(event)">
+                                    <button id="excelUploadBtn" onclick="window.startExcelUpload()" disabled class="w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm">確認上傳並選擇分頁</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
+            <!-- 任務卡設定 -->
             <div class="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6">
                 <div class="p-4 flex justify-between items-center cursor-pointer active:bg-gray-50 transition rounded-2xl" onclick="window.toggleAcc('acc-task-settings')">
                     <label class="block text-[15px] font-black text-gray-800 pointer-events-none flex items-center gap-2"><span>⚙️</span> 任務卡查詢與設定</label>
@@ -318,12 +348,10 @@
                 </div>
                 <div id="acc-task-settings" class="transition-all duration-300" style="max-height: 0px; opacity: 0; overflow: hidden;">
                     <div class="px-4 pb-5 pt-3 border-t border-gray-100">
-                        
                         <div class="flex justify-between items-center mb-3">
                             <p class="text-[11px] text-gray-400 font-bold uppercase tracking-widest">任務卡管理</p>
                             <button id="btnUpdateTasks" onclick="window.initDefaultRShifts()" class="hidden text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded shadow-sm font-bold active:scale-90 transition">更新預設</button>
                         </div>
-                        
                         <input type="text" id="newShiftName" oninput="window.renderShiftSettingsList()" placeholder="任務代號 (輸入文字可向下搜尋)" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold shadow-inner mb-4">
                         
                         <div id="shiftEditForm" class="hidden space-y-4 mb-4 pb-4 border-b border-gray-100">
@@ -331,7 +359,6 @@
                                 <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Start 上班</label><input type="time" id="newShiftStart" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
                                 <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">End 下班</label><input type="time" id="newShiftEnd" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors"></div>
                             </div>
-
                             <div class="w-full pt-1">
                                 <label class="text-[10px] font-bold text-gray-400 block mb-1 uppercase">上班地點</label>
                                 <select id="newShiftLocation" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#1b759a] outline-none font-bold transition-colors">
@@ -342,7 +369,6 @@
                                     <option value="" class="hidden">無 (休假)</option>
                                 </select>
                             </div>
-
                             <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
                                 <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer">
                                     <input type="checkbox" id="newShiftIsR" onchange="window.toggleTimeInputs()" class="w-4 h-4 text-[#1b759a] rounded focus:ring-[#1b759a]">
@@ -353,10 +379,8 @@
                                     特殊班型 (換班時顯示警告)
                                 </label>
                             </div>
-
                             <button onclick="window.saveShiftType()" class="w-full bg-[#1b759a] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.98] transition">儲存至雲端資料庫</button>
                         </div>
-
                         <div id="shiftSettingsList" class="space-y-3 pb-4"></div>
                     </div>
                 </div>
@@ -374,11 +398,39 @@
             <span class="text-[22px] mb-0.5">📤</span><span class="text-[10px]">班表匯出</span>
         </button>
         <button id="btn-tab-settings" onclick="window.switchTab('settings')" class="flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold">
-            <span class="text-[22px] mb-0.5">⚙️</span><span class="text-[10px]">任務設定</span>
+            <span class="text-[22px] mb-0.5">⚙️</span><span class="text-[10px]">後台管理</span>
         </button>
     </nav>
 
-    <!-- 各種 Modal (密碼、警告、唯讀班表、換班等) 與舊版相同，保持穩定運作 -->
+    <!-- EXCEL 分頁選擇視窗 -->
+    <div id="sheetSelectModal" class="hidden fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-modal text-center">
+            <div class="bg-[#1b759a] text-white p-5 flex justify-between items-center">
+                <h3 class="font-black text-lg">📄 選擇要讀取的分頁</h3>
+                <button onclick="window.closeSheetModal()" class="text-white hover:text-gray-200 text-3xl font-bold leading-none active:scale-90 transition">&times;</button>
+            </div>
+            <div class="p-6 bg-gray-50">
+                <p class="text-sm font-bold text-gray-500 mb-4">系統發現此 Excel 檔案中有多個分頁，請點選真正含有班表內容的分頁：</p>
+                <div id="sheetButtonsContainer" class="flex flex-col gap-3 max-h-[40vh] overflow-y-auto custom-scrollbar px-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 專屬除錯/成功報告視窗 -->
+    <div id="debugModal" class="hidden fixed inset-0 bg-black/80 z-[250] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-modal">
+            <div id="debugModalHeader" class="bg-red-500 text-white p-5 flex justify-between items-center">
+                <h3 id="debugModalTitle" class="font-black text-lg">📋 班表解析除錯報告</h3>
+                <button onclick="window.closeReportModal()" class="text-white hover:text-gray-200 text-3xl font-bold leading-none active:scale-90 transition">&times;</button>
+            </div>
+            <div class="p-5 overflow-y-auto max-h-[60vh] bg-gray-50 text-sm font-mono text-gray-800 whitespace-pre-wrap select-all" id="debugModalContent"></div>
+            <div class="p-5 border-t border-gray-200 bg-white flex gap-3">
+                <button id="debugModalBtn" onclick="window.closeReportModal()" class="w-full bg-gray-800 text-white py-3.5 rounded-xl font-bold shadow-md active:scale-95 transition">關閉並返回</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 彈窗區 -->
     <div id="pwdModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center">
             <h3 class="text-xl font-black text-[#1b759a] mb-4">系統管理員解鎖</h3>
@@ -393,35 +445,7 @@
         </div>
     </div>
 
-    <div id="pinWarningModal" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-        <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl animate-modal text-center border-t-8 border-yellow-400">
-            <div class="text-4xl mb-2">⚠️</div>
-            <h3 class="text-xl font-black text-gray-800 mb-2">班表變動通知</h3>
-            <p id="pinWarningDesc" class="text-xs text-gray-500 font-bold mb-4">系統偵測到釘選名單的班表已更新</p>
-            
-            <div class="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-5 shadow-inner text-left">
-                <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-                    <span id="pinWarningDate" class="text-sm font-black text-gray-700 bg-gray-200 px-2 py-0.5 rounded"></span>
-                    <span id="pinWarningName" class="text-[#1b759a] font-black text-base"></span>
-                </div>
-                
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-bold text-gray-400">原任務卡</span>
-                    <span id="pinWarningOldShift" class="text-sm font-black text-gray-500 line-through"></span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold text-yellow-600">新任務卡</span>
-                    <span id="pinWarningNewShift" class="text-lg font-black text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded border border-yellow-200 shadow-sm"></span>
-                </div>
-            </div>
-            
-            <div class="flex gap-3">
-                <button onclick="window.closePinWarningModal()" class="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-xl font-black hover:bg-gray-200 active:scale-95 transition">取消</button>
-                <button id="pinWarningConfirmBtn" class="flex-1 py-3.5 bg-yellow-500 text-white rounded-xl font-black shadow-md hover:bg-yellow-600 active:scale-95 transition flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>確認並更新</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- 唯讀班表 modal -->
     <div id="readOnlyScheduleModal" class="hidden fixed inset-0 bg-black/70 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-modal flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-5 bg-[#f4f8fb] border-b border-blue-100">
@@ -433,12 +457,8 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button id="roModalPinBtn" class="bg-[#1b759a] text-white px-3 py-2 rounded-xl text-xs font-black shadow-md active:scale-95 transition flex items-center gap-1">
-                        📌 加入駐列
-                    </button>
-                    <button onclick="window.closeReadOnlySchedule()" class="bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full p-2 outline-none active:scale-90 transition">
-                        <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
+                    <button id="roModalPinBtn" class="bg-[#1b759a] text-white px-3 py-2 rounded-xl text-xs font-black shadow-md active:scale-95 transition flex items-center gap-1">📌 加入駐列</button>
+                    <button onclick="window.closeReadOnlySchedule()" class="bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full p-2 outline-none active:scale-90 transition"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                 </div>
             </div>
             <div class="p-2 overflow-y-auto max-h-[60vh] custom-scrollbar bg-gray-50">
@@ -450,6 +470,7 @@
         </div>
     </div>
 
+    <!-- 換班詳細與編輯 modal -->
     <div id="shiftModal" class="hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-modal overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
@@ -491,7 +512,7 @@
         </div>
     </div>
 
-    <!-- Firebase 邏輯與應用主程序 -->
+    <!-- Firebase 邏輯與主程式 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -500,36 +521,50 @@
         const ADMIN_PASSWORD = "28830";
         window.isAdmin = false;
         window.fontSizeLevel = 0;
+        
+        window.currentViewMonth = ''; 
+        window.currentViewType = 'PDF'; 
+        window.availableMonths = [];
 
-        window.closePwdModal = () => {
-            document.getElementById('pwdModal').classList.add('hidden');
-            document.getElementById('adminPwdInput').value = '';
+        window.showReportModal = (title, content, isSuccess = false) => {
+            const modal = document.getElementById('debugModal');
+            const header = document.getElementById('debugModalHeader');
+            const titleEl = document.getElementById('debugModalTitle');
+            const contentEl = document.getElementById('debugModalContent');
+            const btn = document.getElementById('debugModalBtn');
+
+            if (isSuccess) {
+                header.className = "bg-green-500 text-white p-5 flex justify-between items-center";
+                btn.className = "w-full bg-green-600 text-white py-3.5 rounded-xl font-bold shadow-md active:scale-95 transition";
+            } else {
+                header.className = "bg-red-500 text-white p-5 flex justify-between items-center";
+                btn.className = "w-full bg-red-600 text-white py-3.5 rounded-xl font-bold shadow-md active:scale-95 transition";
+            }
+
+            titleEl.innerText = title;
+            contentEl.innerText = content;
+            modal.classList.remove('hidden');
         };
+        window.closeReportModal = () => document.getElementById('debugModal').classList.add('hidden');
+        
+        window.closeSheetModal = () => document.getElementById('sheetSelectModal').classList.add('hidden');
+
+        window.closePwdModal = () => { document.getElementById('pwdModal').classList.add('hidden'); document.getElementById('adminPwdInput').value = ''; };
 
         window.submitPwd = () => {
             const pwd = document.getElementById('adminPwdInput').value;
             if (pwd === ADMIN_PASSWORD) {
-                window.isAdmin = true;
-                showToast("🔓 管理員模式已解鎖");
-                window.closePwdModal();
-                window.renderAdminUI();
-                window.renderShiftSettingsList();
-                
+                window.isAdmin = true; showToast("🔓 管理員模式已解鎖"); window.closePwdModal();
+                window.renderAdminUI(); window.renderShiftSettingsList();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                window.toggleAcc('acc-admin-file', false);
-                window.toggleAcc('acc-task-settings', false);
-            } else {
-                showToast("❌ 密碼錯誤", true);
-                document.getElementById('adminPwdInput').value = '';
-            }
+                window.toggleAcc('acc-admin-file', false); window.toggleAcc('acc-task-settings', false);
+            } else { showToast("❌ 密碼錯誤", true); document.getElementById('adminPwdInput').value = ''; }
         };
 
         window.toggleAdminLock = () => {
             if (window.isAdmin) {
-                window.isAdmin = false;
-                showToast("🔒 已登出管理員模式");
-                window.renderAdminUI();
-                window.renderShiftSettingsList(); 
+                window.isAdmin = false; showToast("🔒 已登出管理員模式");
+                window.renderAdminUI(); window.renderShiftSettingsList(); 
             } else {
                 document.getElementById('pwdModal').classList.remove('hidden');
                 setTimeout(() => document.getElementById('adminPwdInput').focus(), 100);
@@ -552,43 +587,24 @@
                 if(fileAdminSection) fileAdminSection.classList.add('hidden');
                 if(shiftEditForm) shiftEditForm.classList.add('hidden');
                 if(updateBtn) updateBtn.classList.add('hidden');
-                
-                const nName = document.getElementById('newShiftName');
-                const nStart = document.getElementById('newShiftStart');
-                const nEnd = document.getElementById('newShiftEnd');
-                if(nName) nName.value = '';
-                if(nStart) nStart.value = '';
-                if(nEnd) nEnd.value = '';
             }
         };
 
         window.toggleFontSize = () => {
             window.fontSizeLevel = (window.fontSizeLevel + 1) % 3;
-            const sizeNames = ["標準", "放大", "特大"];
-            showToast(`🔍 字體已切換為：${sizeNames[window.fontSizeLevel]}`);
-            
-            if (window.searchedEmployees.length > 0) {
-                window.renderAllSchedules();
-            }
+            const sizeNames = ["標準", "放大", "特大"]; showToast(`🔍 字體已切換為：${sizeNames[window.fontSizeLevel]}`);
+            if (window.searchedEmployees.length > 0) window.renderAllSchedules();
         };
 
         window.showConnectionError = (errMessage) => {
-            const spinner = document.getElementById('loadingSpinner');
+            document.getElementById('loadingSpinner')?.classList.add('hidden');
             const text = document.getElementById('loadingText');
-            const errorArea = document.getElementById('loadingError');
-            const errorMsg = document.getElementById('loadingErrorMsg');
-            
-            if(spinner) spinner.classList.add('hidden');
             if(text) { text.innerText = "⚠️ 系統連線失敗"; text.classList.remove('animate-pulse', 'text-[#1b759a]'); text.classList.add('text-red-600', 'text-xl', 'mb-2'); }
-            if(errorArea) errorArea.classList.remove('hidden');
-            if(errorMsg) errorMsg.innerText = errMessage;
-            
-            console.error("🔥 Firebase 連線除錯: ", errMessage);
+            document.getElementById('loadingError')?.classList.remove('hidden');
+            const errorMsg = document.getElementById('loadingErrorMsg'); if(errorMsg) errorMsg.innerText = errMessage;
         };
 
-        let connTimeout = setTimeout(() => {
-            window.showConnectionError("連線逾時 (超過 10 秒)。\n\n可能原因：\n1. 網路不穩\n2. 瀏覽器擴充功能阻擋\n3. 內網封鎖了 Firebase 網域");
-        }, 10000);
+        let connTimeout = setTimeout(() => { window.showConnectionError("連線逾時，請檢查網路狀態"); }, 10000);
 
         const firebaseConfig = {
             apiKey: "AIzaSyDoguq1z7qldw36my7_Wnyc_0vlVbMZTww",
@@ -604,38 +620,22 @@
         const db = getFirestore(app);
         const appId = 'mrt-schedule-pro-v1'; 
 
-        window.customShifts = {};
-        window.allEmployees = [];
-        window.cloudSchedulesDB = {};
-        window.currentYear = 0; window.currentMonth = 0; window.daysInMonth = 0;
-        window.currentUser = null;
-        window.searchedEmployees = []; 
-        window.personalSwapNotes = {}; 
-        window.userPinnedTags = {}; 
-        window.exportTargetEmp = null; 
-        window.selectedPdfFile = null;
+        window.customShifts = {}; window.allEmployees = []; window.cloudSchedulesDB = {};
+        window.currentYear = 0; window.currentMonth = 0; window.daysInMonth = 0; window.currentUser = null;
+        window.searchedEmployees = []; window.personalSwapNotes = {}; window.userPinnedTags = {}; 
+        window.exportTargetEmp = null; window.selectedPdfFile = null; window.selectedExcelFile = null;
+        window.tempWorkbook = null;
 
         window.initTimeOptions = () => {
-            const startSel = document.getElementById('queryTimeStart');
-            if(!startSel) return;
-            let startHtml = '';
-            for(let i=4; i<=23; i++) {
-                startHtml += `<option value="${i}">${i} 點</option>`;
-            }
-            startSel.innerHTML = startHtml;
-            window.updateTimeEndOptions();
+            const startSel = document.getElementById('queryTimeStart'); if(!startSel) return;
+            let startHtml = ''; for(let i=4; i<=23; i++) { startHtml += `<option value="${i}">${i} 點</option>`; }
+            startSel.innerHTML = startHtml; window.updateTimeEndOptions();
         };
 
         window.updateTimeEndOptions = () => {
-            const startSel = document.getElementById('queryTimeStart');
-            const endSel = document.getElementById('queryTimeEnd');
+            const startSel = document.getElementById('queryTimeStart'); const endSel = document.getElementById('queryTimeEnd');
             if(!startSel || !endSel) return;
-            
-            const startVal = parseInt(startSel.value);
-            let endHtml = '';
-            for(let i = startVal + 1; i <= 24; i++) {
-                endHtml += `<option value="${i}">${i} 點</option>`;
-            }
+            let endHtml = ''; for(let i = parseInt(startSel.value) + 1; i <= 24; i++) { endHtml += `<option value="${i}">${i} 點</option>`; }
             endSel.innerHTML = endHtml;
         };
 
@@ -660,17 +660,12 @@
         });
 
         window.toggleAcc = (id, forceState = null) => {
-            const el = document.getElementById(id);
-            const icon = document.getElementById('icon-' + id);
-            const isOpen = el.style.maxHeight === "2000px";
-            const willOpen = forceState !== null ? forceState : !isOpen;
-
+            const el = document.getElementById(id); const icon = document.getElementById('icon-' + id);
+            const isOpen = el.style.maxHeight === "2000px"; const willOpen = forceState !== null ? forceState : !isOpen;
             if (willOpen) {
                 el.style.overflow = "hidden"; el.style.maxHeight = "2000px"; el.style.opacity = "1"; icon.style.transform = "rotate(180deg)";
                 setTimeout(() => { if (el.style.maxHeight === "2000px") el.style.overflow = "visible"; }, 300);
-            } else {
-                el.style.overflow = "hidden"; el.style.maxHeight = "0px"; el.style.opacity = "0"; icon.style.transform = "rotate(0deg)";
-            }
+            } else { el.style.overflow = "hidden"; el.style.maxHeight = "0px"; el.style.opacity = "0"; icon.style.transform = "rotate(0deg)"; }
         };
 
         window.guessLocation = (name, isSpecial) => {
@@ -683,121 +678,189 @@
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                window.currentUser = user;
-                window.renderAdminUI(); 
-                window.initTimeOptions();
+                window.currentUser = user; window.renderAdminUI(); window.initTimeOptions();
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shiftTypes'), (snap) => {
-                    clearTimeout(connTimeout);
-                    window.customShifts = {}; 
+                    clearTimeout(connTimeout); window.customShifts = {}; 
                     snap.forEach(d => {
-                        const data = d.data();
-                        const keyName = data.name || d.id; 
-                        
-                        if (data.isRClass) {
-                            data.location = "";
-                        } else if (!data.location) {
-                            data.location = window.guessLocation(keyName, data.isSpecial);
-                        }
+                        const data = d.data(); const keyName = data.name || d.id; 
+                        if (data.isRClass) data.location = ""; else if (!data.location) data.location = window.guessLocation(keyName, data.isSpecial);
                         window.customShifts[keyName] = data;
                     });
                     window.renderShiftSettingsList(); window.updateDropdowns();
                     document.getElementById('loadingOverlay').classList.add('opacity-0');
                     setTimeout(()=> document.getElementById('loadingOverlay').classList.add('hidden'), 500);
-                }, (error) => {
-                    clearTimeout(connTimeout);
-                    window.showConnectionError(`[資料庫讀取拒絕/失敗]\n代碼: ${error.code}\n訊息: ${error.message}`);
                 });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'schedules'), (snap) => {
-                    const mngSel = document.getElementById('cloudSchedules'); 
+                    const mngSelPDF = document.getElementById('cloudSchedulesPDF'); 
+                    const mngSelEXCEL = document.getElementById('cloudSchedulesEXCEL');
                     const mainSel = document.getElementById('mainScheduleSelect');
                     const expSel = document.getElementById('exportCloudSchedules');
                     
-                    if (snap.empty) { 
-                        mngSel.innerHTML = '<option value="">目前雲端尚無班表</option>'; 
-                        mainSel.innerHTML = '<option value="">目前雲端尚無班表，請聯絡管理員上傳</option>'; 
-                        expSel.innerHTML = '<option value="">目前雲端尚無班表</option>'; return; 
-                    }
-                    mngSel.innerHTML = '<option value="">請選擇要刪除的班表...</option>'; 
-                    mainSel.innerHTML = '<option value="">請點選要查詢的月份...</option>'; 
-                    expSel.innerHTML = '<option value="">請點選要匯出的月份...</option>';
+                    mngSelPDF.innerHTML = '<option value="">請選擇要刪除的 PDF...</option>'; 
+                    mngSelEXCEL.innerHTML = '<option value="">請選擇要刪除的 EXCEL...</option>'; 
                     
                     window.cloudSchedulesDB = {};
+                    const uniqueMonths = new Set();
+                    
                     snap.forEach(d => {
-                        window.cloudSchedulesDB[d.id] = d.data();
-                        const opt = `<option value="${d.id}">${d.data().year}年 ${d.data().month}月 班表</option>`;
-                        mngSel.innerHTML += opt; mainSel.innerHTML += opt; expSel.innerHTML += opt;
+                        const data = d.data();
+                        window.cloudSchedulesDB[d.id] = data;
+                        
+                        const isPDF = d.id.endsWith('-PDF') || (!d.id.includes('-EXCEL') && !d.id.includes('-PDF')); 
+                        const isEXCEL = d.id.endsWith('-EXCEL');
+                        
+                        if (isPDF) mngSelPDF.innerHTML += `<option value="${d.id}">${data.year}年 ${data.month}月 (PDF版)</option>`;
+                        if (isEXCEL) mngSelEXCEL.innerHTML += `<option value="${d.id}">${data.year}年 ${data.month}月 (EXCEL版)</option>`;
+                        
+                        uniqueMonths.add(`${data.year}-${data.month}`);
                     });
-                }, (error) => { console.error("班表清單讀取失敗", error); });
+
+                    let isFirstLoad = !window.currentViewMonth;
+
+                    if (uniqueMonths.size === 0) { 
+                        mainSel.innerHTML = '<option value="">目前雲端尚無班表</option>'; 
+                        expSel.innerHTML = '<option value="">目前雲端尚無班表</option>'; 
+                    } else {
+                        mainSel.innerHTML = '<option value="">請點選要查詢的月份...</option>'; 
+                        expSel.innerHTML = '<option value="">請點選要匯出的月份...</option>';
+                        const sortedMonths = Array.from(uniqueMonths).sort((a,b) => b.localeCompare(a));
+                        sortedMonths.forEach(m => {
+                            const [y, mm] = m.split('-');
+                            const opt = `<option value="${m}">${y}年 ${mm}月 班表</option>`;
+                            mainSel.innerHTML += opt; expSel.innerHTML += opt;
+                        });
+
+                        if (isFirstLoad && sortedMonths.length > 0) {
+                            mainSel.value = sortedMonths[0];
+                            window.handleMonthSelect(); 
+                        } else if (window.currentViewMonth) {
+                            mainSel.value = window.currentViewMonth;
+                        }
+                    }
+                });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'swapNotes'), (snap) => {
                     window.personalSwapNotes = {}; snap.forEach(d => window.personalSwapNotes[d.id] = d.data());
                     if (window.searchedEmployees.length > 0) window.renderAllSchedules();
                     window.renderPinnedTags();
-                }, (error) => { console.error("便利貼讀取失敗", error); });
+                });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'pinnedTags'), (snap) => {
-                    window.userPinnedTags = {}; 
-                    snap.forEach(d => window.userPinnedTags[d.id] = d.data());
+                    window.userPinnedTags = {}; snap.forEach(d => window.userPinnedTags[d.id] = d.data());
                     window.renderPinnedTags();
-                }, (error) => { console.error("釘選名單讀取失敗", error); });
+                });
 
-            } else { 
-                signInAnonymously(auth).catch((error) => {
-                    clearTimeout(connTimeout);
-                    window.showConnectionError(`[登入失敗]\n代碼: ${error.code}\n訊息: ${error.message}\n(註: 無痕模式可能阻擋匿名登入)`);
-                }); 
-            }
+            } else { signInAnonymously(auth).catch((error) => { clearTimeout(connTimeout); window.showConnectionError(`[登入失敗]`); }); }
         });
 
-        window.loadMainSchedule = () => {
-            const sid = document.getElementById('mainScheduleSelect').value; 
-            const infoBox = document.getElementById('scheduleVersionInfo');
+        window.handleMonthSelect = () => {
+            const sid = document.getElementById('mainScheduleSelect').value;
+            window.currentViewMonth = sid;
             const actionContainer = document.getElementById('actionSectionsContainer');
-            
+            const infoBox = document.getElementById('scheduleVersionInfo');
+            const toggleBox = document.getElementById('versionToggleContainer');
+            const badgeContainer = document.getElementById('selectedScheduleBadges');
+
             if (!sid) { 
                 if (actionContainer) actionContainer.classList.add('hidden'); 
                 if (infoBox) infoBox.classList.add('hidden');
+                if (toggleBox) toggleBox.classList.add('hidden');
+                if (badgeContainer) badgeContainer.classList.add('hidden');
                 return; 
             }
-            
-            try {
-                const data = window.cloudSchedulesDB[sid];
-                if (!data) throw new Error("找不到對應的班表資料");
 
-                window.allEmployees = data.employees || []; 
-                window.currentYear = data.year; 
-                window.currentMonth = data.month; 
-                if (data.year && data.month) {
-                    window.daysInMonth = new Date(data.year, data.month, 0).getDate();
+            toggleBox.classList.remove('hidden');
+
+            const pdfData = window.cloudSchedulesDB[`${sid}-PDF`] || window.cloudSchedulesDB[sid];
+            const excelData = window.cloudSchedulesDB[`${sid}-EXCEL`];
+            const hasPDF = !!pdfData;
+            const hasEXCEL = !!excelData;
+
+            if (!hasPDF && !hasEXCEL) { showToast("⚠️ 此月份已無有效資料", true); return; }
+
+            // 💡 決定優先顯示哪一個版本 (依據上傳時間 timestamp 判斷)
+            let preferredType = window.currentViewType;
+            if (hasPDF && hasEXCEL) {
+                const pdfTime = pdfData.timestamp || 0;
+                const excelTime = excelData.timestamp || 0;
+                if (excelTime > pdfTime) preferredType = 'EXCEL';
+                else if (pdfTime > excelTime) preferredType = 'PDF';
+                else {
+                    const eTimeStr = String(excelData.uploadTime || "");
+                    const pTimeStr = String(pdfData.uploadTime || "");
+                    preferredType = eTimeStr > pTimeStr ? 'EXCEL' : 'PDF';
                 }
-                
-                if (infoBox) {
-                    document.getElementById('infoFileName').innerText = data.fileName || "早期版本 (未紀錄檔名)";
-                    document.getElementById('infoUploadTime').innerText = data.uploadTime || "早期版本 (未紀錄時間)";
-                    infoBox.classList.remove('hidden');
-                }
-
-                window.searchedEmployees = window.searchedEmployees.map(item => {
-                    const updatedEmp = window.allEmployees.find(e => e.name === item.emp.name); 
-                    return updatedEmp ? { emp: updatedEmp, isCollapsed: item.isCollapsed } : null;
-                }).filter(Boolean);
-
-                window.updateDropdowns(); 
-                window.renderAllSchedules();
-                window.renderPinnedTags();
-
-                showToast(`✅ 已載入 ${data.year}年${data.month}月 班表！`); 
-
-            } catch (err) {
-                console.error("載入班表時發生錯誤: ", err);
-                showToast("⚠️ 班表解析遇到部分錯誤", true);
-            } finally {
-                if (actionContainer) actionContainer.classList.remove('hidden');
-                window.toggleAcc('acc-select', false); 
-                window.toggleAcc('acc-search', true);  
+            } else if (hasEXCEL) {
+                preferredType = 'EXCEL';
+            } else if (hasPDF) {
+                preferredType = 'PDF';
             }
+
+            window.switchViewType(preferredType);
+            
+            if (actionContainer) actionContainer.classList.remove('hidden');
+            window.toggleAcc('acc-select', false); 
+            window.toggleAcc('acc-search', true);  
+        };
+
+        window.switchViewType = (type) => {
+            const sid = window.currentViewMonth;
+            if(!sid) return;
+
+            let targetDocId = `${sid}-${type}`;
+            if (type === 'PDF' && !window.cloudSchedulesDB[targetDocId] && window.cloudSchedulesDB[sid]) targetDocId = sid;
+
+            const data = window.cloudSchedulesDB[targetDocId];
+            if (!data) { showToast(`⚠️ 雲端尚未有 ${type} 版班表`, true); return; }
+
+            window.currentViewType = type;
+            const btnPDF = document.getElementById('btnViewPDF');
+            const btnEXCEL = document.getElementById('btnViewEXCEL');
+            
+            const badgeContainer = document.getElementById('selectedScheduleBadges');
+            const badgeMonth = document.getElementById('badgeMonth');
+            const badgeType = document.getElementById('badgeType');
+            const displayMonth = sid.split('-')[1];
+
+            badgeContainer.classList.remove('hidden');
+            badgeMonth.innerText = `${displayMonth}月`;
+            badgeType.innerText = type;
+
+            if (type === 'PDF') {
+                btnPDF.className = "flex-1 py-2.5 rounded-xl font-black text-sm transition-all shadow-md bg-red-500 text-white border-2 border-red-600 active:scale-95";
+                btnEXCEL.className = "flex-1 py-2.5 rounded-xl font-bold text-sm transition-all bg-gray-100 text-gray-400 border border-gray-200 active:scale-95";
+                badgeType.className = "bg-red-500 text-white text-[10px] px-2 py-0.5 rounded shadow-sm font-bold tracking-wider";
+            } else {
+                btnPDF.className = "flex-1 py-2.5 rounded-xl font-bold text-sm transition-all bg-gray-100 text-gray-400 border border-gray-200 active:scale-95";
+                btnEXCEL.className = "flex-1 py-2.5 rounded-xl font-black text-sm transition-all shadow-md bg-green-500 text-white border-2 border-green-600 active:scale-95";
+                badgeType.className = "bg-green-500 text-white text-[10px] px-2 py-0.5 rounded shadow-sm font-bold tracking-wider";
+            }
+
+            showToast(`✅ 載入 ${type} 版成功`);
+            window.loadMainScheduleData(data);
+        };
+
+        window.loadMainScheduleData = (data) => {
+            const infoBox = document.getElementById('scheduleVersionInfo');
+            window.allEmployees = data.employees || []; 
+            window.currentYear = data.year; 
+            window.currentMonth = data.month; 
+            if (data.year && data.month) window.daysInMonth = new Date(data.year, data.month, 0).getDate();
+            
+            if (infoBox) {
+                document.getElementById('infoFileName').innerText = data.fileName || "早期版本 (未紀錄檔名)";
+                document.getElementById('infoUploadTime').innerText = data.uploadTime || "早期版本 (未紀錄時間)";
+                infoBox.classList.remove('hidden');
+            }
+
+            window.searchedEmployees = window.searchedEmployees.map(item => {
+                const updatedEmp = window.allEmployees.find(e => e.name === item.emp.name); 
+                return updatedEmp ? { emp: updatedEmp, isCollapsed: item.isCollapsed } : null;
+            }).filter(Boolean);
+
+            window.updateDropdowns(); window.renderAllSchedules(); window.renderPinnedTags();
         };
 
         window.searchSchedule = () => {
@@ -805,22 +868,17 @@
             if (!q || window.allEmployees.length === 0) { showToast("⚠️ 請輸入查詢條件", true); return; }
             let emp = window.allEmployees.find(e => e.searchTags && e.searchTags.some(tag => tag === q));
             if (!emp) emp = window.allEmployees.find(e => String(e.name).replace(/\s+/g, '').includes(q));
-            if (!emp) { showToast(`❌ 找不到員工「${inputEl.value}」`, true); return; }
-            
-            window.addToQueueByEmp(emp);
-            inputEl.value = ''; inputEl.blur(); 
+            if (!emp) { showToast(`❌ 找不到員工學員「${inputEl.value}」`, true); return; }
+            window.addToQueueByEmp(emp); inputEl.value = ''; inputEl.blur(); 
         };
 
         window.addToQueueByEmp = (emp) => {
             const existingIndex = window.searchedEmployees.findIndex(item => item.emp.name === emp.name);
             if (existingIndex > -1) { 
                 const item = window.searchedEmployees.splice(existingIndex, 1)[0]; 
-                item.isCollapsed = false; 
-                window.searchedEmployees.push(item); 
-                showToast(`⚠️ ${emp.name} 已在駐列中！`, true);
+                item.isCollapsed = false; window.searchedEmployees.push(item); showToast(`⚠️ ${emp.name} 已在駐列中！`, true);
             } else { 
-                window.searchedEmployees.push({ emp: emp, isCollapsed: false }); 
-                showToast(`✅ 已將 ${emp.name} 加入駐列`);
+                window.searchedEmployees.push({ emp: emp, isCollapsed: false }); showToast(`✅ 已將 ${emp.name} 加入駐列`);
             }
             window.renderAllSchedules(); 
         };
@@ -845,8 +903,7 @@
                 }
 
                 window.searchedEmployees.forEach(item => {
-                    const emp = item.emp;
-                    const block = document.createElement('div');
+                    const emp = item.emp; const block = document.createElement('div');
                     block.className = "bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)] border border-gray-200 overflow-hidden animate-modal";
 
                     const header = document.createElement('div');
@@ -888,8 +945,7 @@
                                 if (note.status === 'red') { 
                                     cellBg = "bg-red-50 hover:bg-red-100"; 
                                     displayHtml += `<div class="${ntSize} text-red-500 mt-1 font-bold bg-white rounded shadow-sm px-1">需處理</div>`; 
-                                } 
-                                else if (note.status === 'yellow') {
+                                } else if (note.status === 'yellow') {
                                     cellBg = "bg-yellow-50 hover:bg-yellow-100"; borderStyle = "border-yellow-400";
                                     const displayTarget = note.targetId || note.targetName;
                                     displayHtml += `<div class="${ntSize} text-yellow-700 mt-1 border-t border-yellow-300 pt-1 font-bold leading-tight flex flex-col items-center"><span class="${ntTgtSize} text-yellow-800 font-black">${displayTarget}</span><span class="bg-white px-1 rounded shadow-sm mt-0.5">${note.targetShift}</span></div>`;
@@ -906,9 +962,7 @@
                     }
                     container.appendChild(block);
                 });
-            } catch (error) {
-                console.error("renderAllSchedules 錯誤:", error);
-            }
+            } catch (error) { console.error("renderAllSchedules 錯誤:", error); }
         };
 
         window.openModal = (d, empName, empId, dataEncoded) => {
@@ -923,8 +977,7 @@
             const isLeaveDisplay = s.isLeave || (info && info.isRClass);
             const locDisp = info && info.location ? info.location : window.guessLocation(s.display, info ? info.isSpecial : false);
 
-            if (isLeaveDisplay) {
-                time.innerHTML = '<span class="text-gray-400 font-bold text-xl py-2">休假日 🛌</span>';
+            if (isLeaveDisplay) { time.innerHTML = '<span class="text-gray-400 font-bold text-xl py-2">休假日 🛌</span>';
             } else {
                 if (info && info.startTime && info.endTime) {
                     time.innerHTML = `<div class="flex justify-center items-center gap-6 w-full mb-1"><div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">START</span><span class="text-3xl font-black text-gray-800">${info.startTime}</span></div><div class="h-10 w-px bg-gray-200"></div><div class="flex flex-col items-center"><span class="text-[10px] text-gray-400 font-bold tracking-wider">END</span><span class="text-3xl font-black text-orange-500">${info.endTime}</span></div></div><div class="w-full pt-3 mt-1 border-t border-gray-200 text-center"><span class="text-xs font-bold text-gray-500 tracking-wider">📍 上班地點：<span class="text-[#1b759a] font-black">${locDisp}</span></span></div>`;
@@ -934,102 +987,52 @@
             }
 
             const controlArea = document.getElementById('swapControlArea'); 
-            
             let warningHtml = '';
             if (info && info.isSpecial) {
-                warningHtml = `
-                    <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2 shadow-sm">
-                        <span class="text-lg">⚠️</span>
-                        <p class="text-xs text-orange-700 font-bold leading-relaxed">此為特殊班型，依規定可能無法進行換班，請再三確認。</p>
-                    </div>`;
+                warningHtml = `<div class="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2 shadow-sm"><span class="text-lg">⚠️</span><p class="text-xs text-orange-700 font-bold leading-relaxed">此為特殊班型，依規定可能無法進行換班，請再三確認。</p></div>`;
             }
 
             let cHtml = '';
-
             if (!note || note.status === 'red') {
                 const btnText = note && note.status === 'red' ? "取消紅色標記 (恢復白色)" : "📌 標記為需處理 (淺紅)";
                 const btnStyle = note && note.status === 'red' ? "bg-gray-100 text-gray-500 hover:bg-gray-200" : "bg-red-50 text-red-600 border border-red-100";
                 const btnAction = note && note.status === 'red' ? `window.deleteSwapNote('${dateKey}')` : `window.setSwapNote('${dateKey}', 'red')`;
-                
                 cHtml = `
                     <button onclick="${btnAction}" class="w-full py-3.5 mb-4 rounded-xl text-sm font-black shadow-sm active:scale-95 transition flex justify-center items-center gap-2 ${btnStyle}">${btnText}</button>
-                    <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 shadow-sm">
-                        <p class="text-sm text-yellow-800 font-black mb-3">🔄 查詢換班</p>
-                        <div class="flex items-center gap-2">
-                            <input type="text" id="swapTargetInput" placeholder="輸入對象差號或姓名" class="w-[65%] shrink-0 border border-yellow-300 rounded-xl px-3 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner text-center">
-                            <button onclick="window.askSwap('${dateKey}', ${d})" class="flex-1 shrink-0 bg-yellow-500 text-white py-3 rounded-xl font-black shadow-md hover:bg-yellow-600 active:scale-95 transition whitespace-nowrap flex justify-center items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> 查詢</button>
-                        </div>
-                    </div>`;
+                    <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 shadow-sm"><p class="text-sm text-yellow-800 font-black mb-3">🔄 查詢換班</p><div class="flex items-center gap-2"><input type="text" id="swapTargetInput" placeholder="輸入對象差號或姓名" class="w-[65%] shrink-0 border border-yellow-300 rounded-xl px-3 py-3 text-sm font-bold focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner text-center"><button onclick="window.askSwap('${dateKey}', ${d})" class="flex-1 shrink-0 bg-yellow-500 text-white py-3 rounded-xl font-black shadow-md hover:bg-yellow-600 active:scale-95 transition whitespace-nowrap flex justify-center items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> 查詢</button></div></div>`;
             } else if (note.status === 'yellow') {
                 const displayTarget = note.targetId || note.targetName;
                 cHtml = `
-                    <div class="bg-yellow-50 border-2 border-yellow-400 p-5 rounded-2xl mb-4 text-center relative shadow-sm">
-                        <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-yellow-900 text-[10px] font-black px-3 py-1 rounded-full tracking-wider shadow-sm">詢問中</div>
-                        <p class="text-4xl font-black text-gray-800 mt-2 tracking-wide">${displayTarget}</p>
-                        <div class="inline-block bg-white border border-yellow-200 px-4 py-1.5 rounded-lg mt-3 shadow-sm"><span class="text-[#1b759a] font-black text-xl">${note.targetShift}</span></div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 mb-4">
-                        <button onclick="window.setSwapNote('${dateKey}', 'green')" class="py-3.5 bg-green-500 text-white rounded-xl text-sm font-black shadow-md hover:bg-green-600 active:scale-95 transition">✅ 成功互換</button>
-                        <button onclick="window.deleteSwapNote('${dateKey}')" class="py-3.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-black shadow-sm hover:bg-gray-200 active:scale-95 transition">❌ 取消紀錄</button>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                        <p class="text-xs text-gray-500 font-bold mb-2">🔄 換問別人 (更新紀錄)</p>
-                        <div class="flex items-center gap-2">
-                            <input type="text" id="swapTargetInput" placeholder="輸入新對象差號" class="w-[65%] shrink-0 border border-gray-300 rounded-xl px-3 py-3 text-sm font-bold focus:ring-2 focus:ring-[#1b759a] outline-none shadow-inner text-center">
-                            <button onclick="window.askSwap('${dateKey}', ${d})" class="flex-1 shrink-0 bg-gray-800 text-white py-3 rounded-xl font-black shadow-md active:scale-95 transition whitespace-nowrap flex justify-center items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> 查詢</button>
-                        </div>
-                    </div>`;
+                    <div class="bg-yellow-50 border-2 border-yellow-400 p-5 rounded-2xl mb-4 text-center relative shadow-sm"><div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-yellow-900 text-[10px] font-black px-3 py-1 rounded-full tracking-wider shadow-sm">詢問中</div><p class="text-4xl font-black text-gray-800 mt-2 tracking-wide">${displayTarget}</p><div class="inline-block bg-white border border-yellow-200 px-4 py-1.5 rounded-lg mt-3 shadow-sm"><span class="text-[#1b759a] font-black text-xl">${note.targetShift}</span></div></div>
+                    <div class="grid grid-cols-2 gap-3 mb-4"><button onclick="window.setSwapNote('${dateKey}', 'green')" class="py-3.5 bg-green-500 text-white rounded-xl text-sm font-black shadow-md hover:bg-green-600 active:scale-95 transition">✅ 成功互換</button><button onclick="window.deleteSwapNote('${dateKey}')" class="py-3.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-black shadow-sm hover:bg-gray-200 active:scale-95 transition">❌ 取消紀錄</button></div>
+                    <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200"><p class="text-xs text-gray-500 font-bold mb-2">🔄 換問別人 (更新紀錄)</p><div class="flex items-center gap-2"><input type="text" id="swapTargetInput" placeholder="輸入新對象差號" class="w-[65%] shrink-0 border border-gray-300 rounded-xl px-3 py-3 text-sm font-bold focus:ring-2 focus:ring-[#1b759a] outline-none shadow-inner text-center"><button onclick="window.askSwap('${dateKey}', ${d})" class="flex-1 shrink-0 bg-gray-800 text-white py-3 rounded-xl font-black shadow-md active:scale-95 transition whitespace-nowrap flex justify-center items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> 查詢</button></div></div>`;
             } else if (note.status === 'green') {
                 const displayTarget = note.targetId || note.targetName;
                 cHtml = `
-                    <div class="bg-green-50 border-2 border-green-400 p-5 rounded-2xl mb-4 text-center shadow-sm">
-                        <p class="text-sm text-green-700 font-black mb-1">🎉 換班完成</p>
-                        <p class="text-sm font-bold text-gray-500">已正式換為 <span class="text-green-700 text-3xl font-black block mt-1">${note.targetShift}</span></p>
-                        <p class="text-xs text-gray-400 mt-2 font-bold bg-white inline-block px-2 py-1 rounded shadow-sm">(與 ${displayTarget} 互換)</p>
-                    </div>
-                    <button onclick="window.deleteSwapNote('${dateKey}')" class="w-full py-4 bg-gray-800 text-white rounded-xl text-sm font-black shadow-lg hover:bg-black active:scale-95 transition">復原紀錄 (退回最初白色)</button>
-                `;
+                    <div class="bg-green-50 border-2 border-green-400 p-5 rounded-2xl mb-4 text-center shadow-sm"><p class="text-sm text-green-700 font-black mb-1">🎉 換班完成</p><p class="text-sm font-bold text-gray-500">已正式換為 <span class="text-green-700 text-3xl font-black block mt-1">${note.targetShift}</span></p><p class="text-xs text-gray-400 mt-2 font-bold bg-white inline-block px-2 py-1 rounded shadow-sm">(與 ${displayTarget} 互換)</p></div>
+                    <button onclick="window.deleteSwapNote('${dateKey}')" class="w-full py-4 bg-gray-800 text-white rounded-xl text-sm font-black shadow-lg hover:bg-black active:scale-95 transition">復原紀錄 (退回最初白色)</button>`;
             }
-
-            controlArea.innerHTML = warningHtml + cHtml;
-            document.getElementById('shiftModal').classList.remove('hidden');
+            controlArea.innerHTML = warningHtml + cHtml; document.getElementById('shiftModal').classList.remove('hidden');
         };
         window.closeModal = () => document.getElementById('shiftModal').classList.add('hidden');
 
+        // ========== 釘選口袋名單 (靜態小卡片) ==========
         window.addPinTag = async (d, empName, currentShift) => {
             if(!window.currentUser || !window.currentYear) return;
             const docId = `${window.currentYear}-${window.currentMonth}-${d}-${empName}`;
             await setDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId), {
                 year: window.currentYear, month: window.currentMonth, date: d, empName: empName, acknowledgedShift: currentShift
             });
-            showToast(`📌 已將 ${empName} 釘選至名單`);
+            showToast(`📌 已將 ${empName} 釘選`);
         };
-
         window.removePinTag = async (docId) => {
             if(!window.currentUser) return;
             await deleteDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId));
         };
 
-        window.openPinWarningModal = (docId, d, empName, oldShift, newShift) => {
-            document.getElementById('pinWarningDate').innerText = `${window.currentMonth}/${d}`;
-            document.getElementById('pinWarningName').innerText = empName;
-            document.getElementById('pinWarningOldShift').innerText = oldShift;
-            document.getElementById('pinWarningNewShift').innerText = newShift;
-            
-            const btn = document.getElementById('pinWarningConfirmBtn'); const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.onclick = async () => {
-                await setDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'pinnedTags', docId), { acknowledgedShift: newShift }, { merge: true });
-                document.getElementById('pinWarningModal').classList.add('hidden'); showToast("✅ 已確認並更新釘選名單");
-            };
-            document.getElementById('pinWarningModal').classList.remove('hidden');
-        };
-        window.closePinWarningModal = () => document.getElementById('pinWarningModal').classList.add('hidden');
-
         window.renderPinnedTags = () => {
             try {
-                const container = document.getElementById('pinnedTagsContainer'); 
-                const listEl = document.getElementById('pinnedTags'); 
-                const monthDisplay = document.getElementById('pinMonthDisplay');
+                const container = document.getElementById('pinnedTagsContainer'); const listEl = document.getElementById('pinnedTags'); const monthDisplay = document.getElementById('pinMonthDisplay');
                 listEl.innerHTML = '';
                 if(!window.currentYear || !window.currentMonth) { container.classList.add('hidden'); return; }
 
@@ -1039,16 +1042,8 @@
                 monthDisplay.innerText = `(${window.currentMonth}月份)`; container.classList.remove('hidden');
 
                 currentPins.forEach(([docId, data]) => {
-                    const emp = window.allEmployees.find(e => e.name === data.empName);
-                    let liveShift = null; let isMissing = true;
-                    if (emp && emp.shifts[data.date - 1]) { liveShift = emp.shifts[data.date - 1].display; isMissing = emp.shifts[data.date - 1].isMissing; }
-
-                    let showWarning = false; let displayShift = data.acknowledgedShift;
-                    if (!isMissing && liveShift !== null && liveShift !== data.acknowledgedShift) { showWarning = true; } 
-                    else if (liveShift === null || isMissing) { displayShift = "查無此人/沒班"; if(data.acknowledgedShift !== "查無此人/沒班") showWarning = true; }
-
+                    let displayShift = data.acknowledgedShift;
                     const dateKey = `${window.currentYear}-${window.currentMonth}-${data.date}-${data.empName}`; const note = window.personalSwapNotes[dateKey];
-                    
                     let bgClass = "bg-gray-800"; let borderClass = "border-gray-700"; let statusHtml = ""; let nameColor = "text-blue-300";
 
                     if (note) {
@@ -1060,16 +1055,9 @@
                         const sInfo = window.customShifts[displayShift]; if (sInfo && sInfo.isRClass) { nameColor = "text-sky-300"; }
                     }
 
-                    if (showWarning) {
-                        borderClass += " border-2 border-yellow-500 animate-warning-pulse";
-                        displayShift = `<span class="line-through text-gray-400 text-[10px]">${data.acknowledgedShift}</span> <span class="text-yellow-400 font-black">${liveShift}</span>`;
-                    }
-
                     const item = document.createElement('div');
                     item.className = `${bgClass} border ${borderClass} text-white p-3 rounded-xl flex justify-between items-center shadow-lg transition-colors duration-300`;
                     
-                    let warningBtnHtml = showWarning ? `<button onclick="window.openPinWarningModal('${docId}', ${data.date}, '${data.empName}', '${data.acknowledgedShift}', '${liveShift}')" class="bg-yellow-500 hover:bg-yellow-400 text-yellow-900 rounded-lg px-2 py-1.5 text-xs font-black shadow active:scale-90 transition animate-bounce">⚠️ 變動</button>` : '';
-
                     item.innerHTML = `
                         <div class="flex-1 flex flex-col justify-center">
                             <div class="text-sm font-bold tracking-wide leading-tight">
@@ -1078,16 +1066,13 @@
                             ${statusHtml}
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0 ml-2">
-                            ${warningBtnHtml}
                             <button onclick="window.openReadOnlySchedule('${data.empName}')" class="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg text-sm active:scale-90 transition border border-white/10">📅</button>
                             <button onclick="window.removePinTag('${docId}')" class="bg-black/30 hover:bg-black/50 p-1.5 rounded-lg text-sm active:scale-90 transition text-gray-400 hover:text-white">✕</button>
                         </div>
                     `;
                     listEl.appendChild(item);
                 });
-            } catch (err) {
-                console.error("renderPinnedTags 錯誤:", err);
-            }
+            } catch (err) { console.error("renderPinnedTags 錯誤:", err); }
         };
 
         window.openReadOnlySchedule = (empName) => {
@@ -1104,13 +1089,12 @@
                 let cellBg = "bg-white"; let mainColor = "text-[#1b759a]"; let borderStyle = "border-[#1b759a]";
                 let displayHtml = `<div class="font-black text-[11px]">${s.isMissing ? '未確認' : s.display}</div>`;
                 if (s.isMissing) { mainColor = "text-gray-400"; borderStyle = "border-dashed border-gray-300 bg-gray-50"; }
-                else if (s.isHolidayWork) { mainColor = "text-orange-600"; borderStyle = "border-orange-500 bg-orange-50"; }
+                else if (s.isHolidayWork) { mainColor = "text-orange-600 border-orange-500 bg-orange-50"; borderStyle = "border-orange-500 bg-orange-50"; }
                 else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { mainColor = "text-gray-500"; borderStyle = "border-gray-200 bg-gray-100"; }
                 grid.innerHTML += `<div class="flex flex-col items-center pt-1 h-20 border-b border-r border-gray-200 ${cellBg}"><span class="text-[10px] font-black text-gray-400 mb-1">${d}</span><div class="border rounded px-0.5 py-1 w-[90%] text-center ${mainColor} ${borderStyle} flex flex-col justify-center min-h-[40px] shadow-sm">${displayHtml}</div></div>`;
             }
             document.getElementById('readOnlyScheduleModal').classList.remove('hidden');
         };
-
         window.closeReadOnlySchedule = () => document.getElementById('readOnlyScheduleModal').classList.add('hidden');
 
         window.setSwapNote = async (dateKey, statusStr) => {
@@ -1130,10 +1114,8 @@
             if(!window.currentUser) return;
             const q = document.getElementById('swapTargetInput').value.replace(/\s+/g, '').toLowerCase();
             if(!q) { showToast("⚠️ 請輸入對象", true); return; }
-            
             let targetEmp = window.allEmployees.find(e => e.searchTags && e.searchTags.some(tag => tag === q));
             if (!targetEmp) targetEmp = window.allEmployees.find(e => String(e.name).includes(q));
-
             if (!targetEmp) { showToast('❌ 查無此同事資料', true); return; }
             const tShift = targetEmp.shifts[dayIndex - 1];
             if (!tShift || tShift.isMissing || tShift.display === 'X') { showToast(`❌ ${targetEmp.name} 這天沒有班別`, true); return; }
@@ -1151,209 +1133,54 @@
             document.getElementById('swapConfirmModal').classList.remove('hidden');
         };
 
-        window.showCustomDropdown = () => { document.getElementById('customShiftDropdown').classList.remove('hidden'); window.filterCustomDropdown(); };
-
-        window.filterCustomDropdown = () => {
-            const inputVal = document.getElementById('queryShift').value.toLowerCase();
-            const dropdown = document.getElementById('customShiftDropdown'); dropdown.innerHTML = '';
-            const shifts = Object.keys(window.customShifts).sort();
-            let hasResult = false;
-            shifts.forEach(shift => {
-                if (shift.toLowerCase().includes(inputVal)) {
-                    hasResult = true;
-                    const item = document.createElement('div'); item.className = "px-4 py-3 text-sm font-bold text-gray-700 cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition"; item.innerText = shift;
-                    item.onmousedown = (e) => { e.preventDefault(); document.getElementById('queryShift').value = shift; dropdown.classList.add('hidden'); window.executeShiftQuery(); };
-                    dropdown.appendChild(item);
-                }
-            });
-            if (!hasResult) { dropdown.innerHTML = '<div class="px-4 py-3 text-sm text-gray-400 text-center">無符合班別</div>'; }
+        // ========== PDF 解析引擎 (更新職務抓取) ==========
+        window.handlePdfSelect = (e) => {
+            const f = e.target.files[0]; if (!f) return;
+            window.selectedPdfFile = f; document.getElementById('pdfFileNameDisplay').innerText = `📄 已選擇：${f.name}`;
+            const btn = document.getElementById('pdfUploadBtn'); btn.disabled = false;
+            btn.className = "w-full bg-red-500 text-white font-bold py-3 rounded-xl transition shadow-md hover:bg-red-600 active:scale-95 text-sm";
         };
 
-        window.executeShiftQuery = () => {
-            document.getElementById('customShiftDropdown').classList.add('hidden');
-            const d = document.getElementById('queryDate').value; const s = document.getElementById('queryShift').value.trim();
-            const res = document.getElementById('queryResults'); res.innerHTML = '';
-            if (!d || !s) { showToast("⚠️ 請選擇日期並輸入班型", true); return; }
-            const list = window.allEmployees.filter(e => e.shifts[d - 1] && e.shifts[d - 1].display === s);
-            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">無人上「${s}」</p>`; return; }
-            list.forEach(e => {
-                const tag = document.createElement('div'); tag.className = "bg-white border border-blue-100 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
-                tag.innerHTML = `
-                    <span class="text-sm font-bold text-gray-700">${window.currentMonth}/${d} ｜ <span class="text-[#1b759a]">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${s}</span>
-                    <div class="flex items-center gap-1.5">
-                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-blue-50 hover:bg-blue-100 text-[#1b759a] border border-blue-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
-                            <span class="text-sm leading-none">📅</span>
-                        </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${s}')" class="text-[10px] bg-[#1b759a] text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
-                            📌
-                        </button>
-                    </div>`;
-                res.appendChild(tag);
-            });
-        };
-
-        window.executeRQuery = () => {
-            const d = document.getElementById('queryRDate').value; 
-            const type = document.getElementById('queryRType').value; 
-            const res = document.getElementById('queryRResults'); res.innerHTML = '';
-            if (!d || !type) { showToast("⚠️ 請選擇日期與班型", true); return; }
-
-            const list = window.allEmployees.filter(e => {
-                const s = e.shifts[d - 1];
-                if (!s || s.isMissing) return false;
-                
-                let isR = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
-                const matchRole = e.role && e.role.includes(type);
-                return isR && matchRole;
-            });
-
-            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">當日無「${type}班」同仁排定休假</p>`; return; }
-            
-            list.forEach(e => {
-                const sDisp = e.shifts[d - 1].display;
-                const tag = document.createElement('div'); tag.className = "bg-sky-50 border border-sky-200 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
-                tag.innerHTML = `
-                    <span class="text-sm font-bold text-sky-900">${window.currentMonth}/${d} ｜ <span class="text-sky-600">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
-                    <div class="flex items-center gap-1.5">
-                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
-                            <span class="text-sm leading-none">📅</span>
-                        </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-sky-500 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
-                            📌
-                        </button>
-                    </div>`;
-                res.appendChild(tag);
-            });
-        };
-
-        window.executeTimeSlotQuery = () => {
-            const d = document.getElementById('queryTimeDate').value;
-            const startH = parseInt(document.getElementById('queryTimeStart').value);
-            const endH = parseInt(document.getElementById('queryTimeEnd').value);
-            const res = document.getElementById('queryTimeResults');
-            res.innerHTML = '';
-
-            if (!d || isNaN(startH) || isNaN(endH)) { showToast("⚠️ 請選擇日期與區間", true); return; }
-
-            const startTotalMins = startH * 60;
-            const endTotalMins = endH * 60;
-
-            const list = window.allEmployees.filter(e => {
-                const s = e.shifts[d - 1];
-                if (!s || s.isMissing || s.display === 'X') return false;
-
-                const shiftInfo = window.customShifts[s.display];
-                if (!shiftInfo || shiftInfo.isRClass || shiftInfo.isSpecial) return false; 
-
-                if (shiftInfo.startTime) {
-                    const [hh, mm] = shiftInfo.startTime.split(':').map(Number);
-                    const shiftMins = hh * 60 + mm;
-                    return shiftMins >= startTotalMins && shiftMins <= endTotalMins;
-                }
-                return false;
-            });
-
-            if (list.length === 0) {
-                res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold py-2">該時段內無人上班，或僅有特殊班型</p>`;
-                return;
-            }
-
-            list.sort((a, b) => {
-                const sA = a.shifts[d - 1].display;
-                const sB = b.shifts[d - 1].display;
-                const locA = (window.customShifts[sA] || {}).location || window.guessLocation(sA, false);
-                const locB = (window.customShifts[sB] || {}).location || window.guessLocation(sB, false);
-
-                const getLocRank = (loc) => {
-                    if (loc.includes('松山')) return 1;
-                    if (loc.includes('新店')) return 2;
-                    if (loc.includes('七張')) return 3;
-                    return 4;
-                };
-
-                const rankA = getLocRank(locA);
-                const rankB = getLocRank(locB);
-
-                if (rankA !== rankB) return rankA - rankB; 
-                return sA.localeCompare(sB, undefined, { numeric: true, sensitivity: 'base' });
-            });
-
-            list.forEach(e => {
-                const sDisp = e.shifts[d - 1].display;
-                const shiftInfo = window.customShifts[sDisp];
-                const loc = shiftInfo.location || window.guessLocation(sDisp, false);
-
-                let bgClass = "bg-white"; let textClass = "text-gray-800"; let nameClass = "text-[#1b759a]"; let borderClass = "border-gray-200";
-
-                if (loc.includes('松山')) {
-                    bgClass = "bg-green-100"; textClass = "text-green-900"; nameClass = "text-green-700"; borderClass = "border-green-300";
-                } else if (loc.includes('七張')) {
-                    bgClass = "bg-green-600"; textClass = "text-white"; nameClass = "text-green-100"; borderClass = "border-green-700";
-                } else if (loc.includes('新店')) {
-                    bgClass = "bg-[#1a3a28]"; textClass = "text-gray-100"; nameClass = "text-gray-300"; borderClass = "border-gray-800";
-                }
-
-                const tag = document.createElement('div');
-                tag.className = `${bgClass} ${borderClass} border p-2.5 rounded-xl flex justify-between items-center shadow-sm`;
-                tag.innerHTML = `
-                    <span class="text-sm font-bold ${textClass}">${window.currentMonth}/${d} ｜ <span class="${nameClass}">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span>
-                    <div class="flex items-center gap-1.5">
-                        <button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white/20 hover:bg-white/30 ${textClass} border border-white/20 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center">
-                            <span class="text-sm leading-none">📅</span>
-                        </button>
-                        <button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-black/30 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">
-                            📌
-                        </button>
-                    </div>`;
-                res.appendChild(tag);
-            });
-        };
-
-        window.handleFileSelect = (e) => {
-            const f = e.target.files[0]; 
-            if (!f) return;
-            window.selectedPdfFile = f;
-            document.getElementById('pdfFileNameDisplay').innerText = `📄 已選擇：${f.name}`;
-            const btn = document.getElementById('pdfUploadBtn');
-            btn.disabled = false;
-            btn.className = "w-full bg-[#1b759a] text-white font-bold py-3 rounded-xl transition shadow-md hover:bg-blue-700 active:scale-95 text-sm";
-            btn.innerText = "2. 確認上傳並解析";
-        };
-
-        // ========== v3.4 核心升級：全新解析引擎 ==========
         window.startPdfUpload = async () => {
             if (!window.selectedPdfFile) return;
-            const btn = document.getElementById('pdfUploadBtn');
-            btn.disabled = true; btn.innerText = "⏳ 上傳與解析中...";
+            const btn = document.getElementById('pdfUploadBtn'); btn.disabled = true; btn.innerText = "⏳ 解析中...";
             btn.className = "w-full bg-gray-400 text-white font-bold py-3 rounded-xl shadow-inner cursor-wait text-sm";
-            showToast("⏳ 正在啟用最新 v3.5 網格解析引擎...");
+            showToast("⏳ 正在執行 PDF 網格解析...");
 
             try {
                 const targetFileName = window.selectedPdfFile.name;
                 const buf = await window.selectedPdfFile.arrayBuffer(); 
                 window.pdfDocument = await pdfjsLib.getDocument({ data: buf }).promise;
-                await buildDbAndSync(targetFileName);
-                document.getElementById('pdfFileNameDisplay').innerText = "1. 點擊此處選擇 PDF 檔案";
-                window.selectedPdfFile = null; btn.innerText = "2. 確認上傳並解析";
+                await buildDbAndSyncPDF(targetFileName);
+                document.getElementById('pdfFileNameDisplay').innerText = "點擊選擇 PDF 檔案";
+                window.selectedPdfFile = null; btn.innerText = "確認上傳並解析";
                 btn.className = "w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm";
             } catch (err) { 
-                showToast("❌ PDF 讀取出錯", true); console.error(err);
+                window.showReportModal("❌ PDF 解析失敗", err.message || "檔案格式異常", false);
                 btn.disabled = false; btn.innerText = "重新嘗試上傳";
                 btn.className = "w-full bg-red-500 text-white font-bold py-3 rounded-xl transition shadow-md text-sm";
             }
         };
 
-        async function buildDbAndSync(fileNameString) {
+        async function buildDbAndSyncPDF(fileNameString) {
             window.allEmployees = [];
             const skip = ["早場", "早塔", "午場", "午塔", "夜場", "夜塔", "日段", "日副", "段長", "副段", "約休", "日間", "家庭", "備註", "春節", "國假", "特休"];
             let dateFound = false;
 
+            const fileMatch1 = fileNameString.match(/(11\d)(0[1-9]|1[0-2])/);
+            const fileMatch2 = fileNameString.match(/(\d+)\s*年\s*(\d+)\s*月/);
+            if (fileMatch1) {
+                let y = parseInt(fileMatch1[1]); window.currentYear = y + 1911; 
+                window.currentMonth = parseInt(fileMatch1[2]); window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate(); dateFound = true;
+            } else if (fileMatch2) {
+                let y = parseInt(fileMatch2[1]); window.currentYear = y < 1911 ? y + 1911 : y; 
+                window.currentMonth = parseInt(fileMatch2[2]); window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate(); dateFound = true;
+            }
+
             for (let pageNum = 1; pageNum <= window.pdfDocument.numPages; pageNum++) {
-                const p = await window.pdfDocument.getPage(pageNum); 
-                const c = await p.getTextContent();
+                const p = await window.pdfDocument.getPage(pageNum); const c = await p.getTextContent();
                 let pageItems = c.items.map(it => ({ text: it.str.trim(), x: it.transform[4], y: it.transform[5] })).filter(it => it.text);
                 
-                // 💡 改變 1: 放大排列的 Y 容錯率 (6 -> 12)，同一個格子的字如果有換行，確保上面的排在前面
                 pageItems.sort((a, b) => {
                     if (Math.abs(a.y - b.y) > 12) return b.y - a.y; 
                     if (Math.abs(a.x - b.x) > 2) return a.x - b.x; 
@@ -1364,14 +1191,14 @@
                     for (let obj of pageItems) {
                         const m = obj.text.match(/(\d+)\s*年\s*(\d+)\s*月/);
                         if (m) { 
-                            window.currentYear = parseInt(m[1]) + 1911; window.currentMonth = parseInt(m[2]); 
-                            window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate();
+                            let y = parseInt(m[1]); window.currentYear = y < 1911 ? y + 1911 : y; 
+                            window.currentMonth = parseInt(m[2]); 
+                            window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate(); 
                             dateFound = true; break; 
                         }
                     }
                 }
 
-                // 💡 改變 2: 放大每一行抓取的 Y 容錯率 (8 -> 12)，防止稍微沒有對齊的字被踢出該行
                 let rows = []; let currentRow = []; let currentY = null;
                 for (let obj of pageItems) {
                     if (currentY === null) { currentY = obj.y; currentRow.push(obj); } 
@@ -1384,11 +1211,10 @@
                     let nameIdx = -1; let empName = "";
                     for (let i = 0; i < row.length; i++) {
                         let t = row[i].text; let parts = t.split(/\s+/); let lastPart = parts[parts.length - 1]; 
-                        
-                        if (/^[\u4e00-\u9fa5]{2,4}$/.test(lastPart) && !skip.includes(lastPart) && !/^(早|午|夜|休|R|C|5|6|7|動|日)/.test(lastPart)) {
+                        // 💡 名字寬容度提升
+                        if (/^[\u4e00-\u9fa5]{2,5}$/.test(lastPart) && !skip.includes(lastPart) && !/^(早|午|夜|休|R|C|5|6|7|動|日)/.test(lastPart)) {
                             if (parts.length > 1) {
-                                row.splice(i, 1); 
-                                for (let p = 0; p < parts.length; p++) { row.splice(i + p, 0, { text: parts[p], x: row[i]?row[i].x:0, y: row[i]?row[i].y:0 }); }
+                                row.splice(i, 1); for (let p = 0; p < parts.length; p++) { row.splice(i + p, 0, { text: parts[p], x: row[i]?row[i].x:0, y: row[i]?row[i].y:0 }); }
                                 nameIdx = i + parts.length - 1; 
                             } else { nameIdx = i; }
                             empName = lastPart; break;
@@ -1396,50 +1222,35 @@
                     }
 
                     if (nameIdx !== -1) {
-                        let tags = []; let displayId = "無"; let role = "未知";
-                        
+                        let tags = []; let displayId = "無"; let role = "其他"; // 💡 預設改為其他
                         for (let j = 0; j < nameIdx; j++) {
                             let preText = row[j].text;
-                            if (/^[A-Za-z]?\d{1,6}$/.test(preText)) {
-                                tags.push(preText.toLowerCase());
+                            if (/^[A-Za-z]?\d{1,6}$/.test(preText)) { 
+                                tags.push(preText.toLowerCase()); 
                                 if (preText.length >= 1 && preText.length <= 4) displayId = preText; 
                             }
-                            if (/(早|午|夜|日)/.test(preText) && preText.length >= 2) {
-                                role = preText; 
-                            }
+                            
+                            // 💡 職務判定：加入「其他」支援
+                            if (preText.includes("早")) role = "早";
+                            else if (preText.includes("午")) role = "午";
+                            else if (preText.includes("夜")) role = "夜";
+                            else if (/(段長|副段|督導|調度|專員|站長)/.test(preText)) role = "其他";
                         }
                         if (displayId === "無" && tags.length > 0) displayId = tags[0]; 
 
                         let shifts = []; let k = nameIdx + 1;
-                        
-                        // 💡 改變 3: 加入「自動黏合膠水」，判斷在同一個格子裡被換行的文字
-                        let allShiftTexts = [];
-                        let cellGroups = [];
-                        let lastX = -999;
-                        
+                        let allShiftTexts = []; let cellGroups = []; let lastX = -999;
                         for (let tIdx = k; tIdx < row.length; tIdx++) {
-                            let item = row[tIdx];
-                            if (!item.text.trim()) continue;
-                            
-                            // 只要兩個字水平距離相差不到 18 (代表在同一格)，就把他們黏進同一個群組
-                            if (Math.abs(item.x - lastX) < 18) {
-                                cellGroups[cellGroups.length - 1].push(item.text.trim());
-                            } else {
-                                cellGroups.push([item.text.trim()]);
-                                lastX = item.x;
-                            }
+                            let item = row[tIdx]; if (!item.text.trim()) continue;
+                            if (Math.abs(item.x - lastX) < 18) { cellGroups[cellGroups.length - 1].push(item.text.trim()); } 
+                            else { cellGroups.push([item.text.trim()]); lastX = item.x; }
                         }
                         
-                        // 將同一個格子的字黏好，再處理因為排版太擠被併在一起的錯誤
-                        for (let group of cellGroups) {
-                            let combinedText = group.join(''); 
-                            allShiftTexts.push(...combinedText.split(/\s+/));
-                        }
+                        for (let group of cellGroups) { let combinedText = group.join(''); allShiftTexts.push(...combinedText.split(/\s+/)); }
                         
                         let tokenIdx = 0;
                         while (shifts.length < window.daysInMonth && tokenIdx < allShiftTexts.length) {
                             let st = allShiftTexts[tokenIdx]; tokenIdx++;
-                            // 過濾掉時數數字
                             if (/^\d+(\.\d+)?$/.test(st) && parseFloat(st) >= 5 && parseFloat(st) <= 24) continue; 
                             if (st === "" || st === " ") continue;
                             
@@ -1456,41 +1267,355 @@
                 }
             }
             
+            if(!dateFound) throw new Error("無法從檔案中辨識年月資訊");
+            
             if (window.allEmployees.length > 0) {
-                const sid = `${window.currentYear}-${window.currentMonth}`;
-                
+                const sid = `${window.currentYear}-${window.currentMonth}-PDF`;
                 const now = new Date();
-                const y = now.getFullYear();
-                const m = String(now.getMonth() + 1).padStart(2, '0');
-                const d = String(now.getDate()).padStart(2, '0');
-                const h = String(now.getHours()).padStart(2, '0');
-                const min = String(now.getMinutes()).padStart(2, '0');
-                const ampm = now.getHours() >= 12 ? '下午' : '上午';
-                const formattedTime = `${y}/${m}/${d} ${ampm} ${h}:${min}`;
+                
+                // 💡 加入上傳時間標記 (timestamp) 讓系統自動排序最新版本
+                const formattedTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${now.getHours() >= 12 ? '下午' : '上午'} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sid), { 
+                        year: window.currentYear, month: window.currentMonth, employees: window.allEmployees, fileName: fileNameString, uploadTime: formattedTime, timestamp: Date.now(), type: 'PDF'
+                    });
+                    window.showReportModal("✅ PDF 解析成功", `共成功解析 ${window.allEmployees.length} 人。`, true);
+                } catch(e) { showToast(`✅ 本機更新成功，但無法存入雲端`, true); }
+            } else { throw new Error("請確認 PDF 格式，找不到員工"); }
+        }
+
+        // ========== EXCEL 「分頁攔截選擇」 + 強化 A 欄大腦 ==========
+        window.handleExcelSelect = (e) => {
+            const f = e.target.files[0]; if (!f) return;
+            window.selectedExcelFile = f; document.getElementById('excelFileNameDisplay').innerText = `📊 已選擇：${f.name}`;
+            const btn = document.getElementById('excelUploadBtn'); btn.disabled = false;
+            btn.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl transition shadow-md hover:bg-green-600 active:scale-95 text-sm";
+        };
+
+        window.startExcelUpload = async () => {
+            if (!window.selectedExcelFile) return;
+            const btn = document.getElementById('excelUploadBtn'); btn.disabled = true; btn.innerText = "⏳ 掃描分頁中...";
+            btn.className = "w-full bg-gray-400 text-white font-bold py-3 rounded-xl shadow-inner cursor-wait text-sm";
+
+            try {
+                const buf = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(new Error("手機瀏覽器檔案讀取失敗"));
+                    reader.readAsArrayBuffer(window.selectedExcelFile);
+                });
+
+                window.tempWorkbook = XLSX.read(buf, {
+                    type: 'array',
+                    cellFormula: false,  
+                    cellHTML: false,
+                    cellNF: true,        
+                    cellText: true       
+                });
+                
+                const sheetNames = window.tempWorkbook.SheetNames;
+                const container = document.getElementById('sheetButtonsContainer');
+                container.innerHTML = '';
+                
+                sheetNames.forEach(sheetName => {
+                    const sBtn = document.createElement('button');
+                    sBtn.className = "w-full py-4 px-4 bg-white border border-gray-200 rounded-xl shadow-sm text-[#1b759a] font-black text-lg hover:bg-blue-50 active:scale-95 transition flex justify-between items-center";
+                    sBtn.innerHTML = `<span>📄 ${sheetName}</span> <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">點擊讀取</span>`;
+                    sBtn.onclick = () => window.executeExcelParsing(sheetName);
+                    container.appendChild(sBtn);
+                });
+                
+                document.getElementById('sheetSelectModal').classList.remove('hidden');
+
+            } catch (err) {
+                console.error(err);
+                window.showReportModal("❌ 分頁掃描失敗", err.message || "未知錯誤", false);
+                btn.disabled = false; btn.innerText = "確認上傳並選擇分頁";
+                btn.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl transition shadow-md text-sm";
+            }
+        };
+
+        window.executeExcelParsing = async (targetSheetName) => {
+            window.closeSheetModal(); 
+            showToast(`⏳ 正在讀取「${targetSheetName}」...`);
+            
+            const btn = document.getElementById('excelUploadBtn');
+            const targetFileName = window.selectedExcelFile.name;
+
+            try {
+                const sheet = window.tempWorkbook.Sheets[targetSheetName];
+                const range = XLSX.utils.decode_range(sheet['!ref'] || "A1:AP200");
+                const jsonRows = [];
+                
+                const startCol = 0; 
+                const endCol = Math.max(range.e.c, 36); 
+
+                for (let r = 0; r <= range.e.r; r++) {
+                    const row = [];
+                    for (let c = startCol; c <= endCol; c++) {
+                        const cellRef = XLSX.utils.encode_cell({r: r, c: c});
+                        const cell = sheet[cellRef];
+                        let val = "";
+                        if (cell) {
+                            val = cell.w !== undefined ? String(cell.w).trim() : (cell.v !== undefined ? String(cell.v).trim() : "");
+                        }
+                        row.push(val);
+                    }
+                    jsonRows.push(row);
+                }
+                
+                await buildDbAndSyncEXCEL(jsonRows, targetFileName);
+                
+                document.getElementById('excelFileNameDisplay').innerText = "點擊選擇 EXCEL 檔案";
+                window.selectedExcelFile = null; window.tempWorkbook = null;
+                btn.innerText = "確認上傳並選擇分頁";
+                btn.className = "w-full bg-gray-300 text-white font-bold py-3 rounded-xl transition shadow-sm cursor-not-allowed text-sm";
+            } catch (err) {
+                console.error(err);
+                window.showReportModal("❌ EXCEL 解析失敗報告", err.message || "未知錯誤", false);
+                
+                btn.disabled = false; btn.innerText = "重新選擇分頁重試";
+                btn.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl transition shadow-md text-sm";
+            }
+        };
+
+        async function buildDbAndSyncEXCEL(rows, fileNameString) {
+            window.allEmployees = [];
+            let debugLog = []; 
+            let consecutiveEmptyRows = 0; 
+            let totalRowsParsed = 0;
+            let currentRole = "其他"; 
+            
+            const skip = ["早場", "早塔", "午場", "午塔", "夜場", "夜塔", "日段", "日副", "段長", "副段", "約休", "日間", "家庭", "備註", "春節", "國假", "特休", "姓名", "職稱", "日期", "星期"];
+            let dateFound = false;
+            
+            const fileMatch1 = fileNameString.match(/(11\d)(0[1-9]|1[0-2])/);
+            const fileMatch2 = fileNameString.match(/(\d+)\s*年\s*(\d+)\s*月/);
+            
+            if (fileMatch1) {
+                let y = parseInt(fileMatch1[1]); window.currentYear = y + 1911; 
+                window.currentMonth = parseInt(fileMatch1[2]); window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate(); dateFound = true;
+            } else if (fileMatch2) {
+                let y = parseInt(fileMatch2[1]); window.currentYear = y < 1911 ? y + 1911 : y; 
+                window.currentMonth = parseInt(fileMatch2[2]); window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate(); dateFound = true;
+            }
+
+            if (!dateFound) {
+                for(let r = 0; r < Math.min(rows.length, 30); r++) {
+                    if(!rows[r]) continue;
+                    const rowStr = rows[r].join(" ");
+                    const m = rowStr.match(/(\d+)\s*年\s*(\d+)\s*月/);
+                    if(m) {
+                        let y = parseInt(m[1]); window.currentYear = y < 1911 ? y + 1911 : y; 
+                        window.currentMonth = parseInt(m[2]); window.daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate(); dateFound = true; break;
+                    }
+                }
+            }
+            if(!dateFound) {
+                let topDCols = rows.slice(0, 10).map((r, i) => `列${i+1}: D=[${r[3]||''}]`).join('\n');
+                throw new Error(`無法從檔名或內容辨識年月！\n這可能是因為這個分頁不是真正的班表。\n請重新上傳並選擇正確的班表分頁。\n\n【此分頁前10列 D欄 預覽】\n${topDCols}`);
+            }
+
+            for(let r = 3; r < rows.length; r++) { 
+                let row = rows[r];
+                
+                // 💡 提升容忍：50行全空才斷定為結束
+                if(!row || row.length < 4) {
+                    consecutiveEmptyRows++;
+                    if (consecutiveEmptyRows >= 50) { break; } 
+                    continue;
+                }
+                
+                let aCell = String(row[0] || "").trim();
+                if (aCell !== "" && aCell !== "職務" && aCell !== "職稱" && aCell !== "姓名") {
+                    if (aCell.includes("早")) currentRole = "早";
+                    else if (aCell.includes("午")) currentRole = "午";
+                    else if (aCell.includes("夜")) currentRole = "夜";
+                    else currentRole = "其他";
+                }
+                
+                let bCell = String(row[1] || "").trim();
+                let cCell = String(row[2] || "").trim();
+                let nameCell = String(row[3] || "").trim();
+                
+                let pureName = nameCell.replace(/[a-zA-Z0-9\-\/\s]/g, '');
+                
+                if (bCell === "" && cCell === "" && pureName === "") {
+                    consecutiveEmptyRows++;
+                    if (consecutiveEmptyRows >= 50) { break; } 
+                    continue;
+                }
+                
+                consecutiveEmptyRows = 0;
+                totalRowsParsed++;
+                
+                if (r < 25) {
+                    debugLog.push(`[列 ${r+1}] 職務:${currentRole} | B:"${bCell}" | C:"${cCell}" | D:"${nameCell}"`);
+                }
+                
+                if (pureName.length >= 2 && pureName.length <= 5 && /^[\u4e00-\u9fa5]+$/.test(pureName) && !skip.includes(pureName)) {
+                    
+                    let displayId = "無";
+                    let tags = [];
+                    
+                    // 💡 差號優先：優先把 B 欄當作差號來顯示！
+                    if (bCell && bCell !== "") {
+                        displayId = bCell; 
+                        tags.push(bCell.toLowerCase());
+                    } 
+                    if (cCell && cCell !== "") {
+                        tags.push(cCell.toLowerCase());
+                        if (displayId === "無") displayId = cCell; // 只有在沒有差號時才拿員編當備用顯示
+                    }
+                    
+                    let shifts = [];
+                    let hasRealShift = false;
+                    
+                    for (let d = 1; d <= window.daysInMonth; d++) {
+                        let colIdx = 3 + d; 
+                        let st = String(row[colIdx] || "").replace(/\n/g, '').trim();
+                        
+                        if (!st || st === "") {
+                            shifts.push({ display: "X", isMissing: true });
+                        } else {
+                            hasRealShift = true;
+                            let disp = st, h = false, l = false;
+                            
+                            if (/R1[A-Z]出\/?(.+?)(約)?$/.test(st)) { disp = st.match(/R1[A-Z]出\/?(.+?)(約)?$/)[1]; h = true; }
+                            else if (/R出\/?(.+?)(約)?$/.test(st)) { disp = st.match(/R出\/?(.+?)(約)?$/)[1]; h = true; }
+                            else if (/^(R|R1[A-Z]|休.*|事.*|病.*|喪.*|家照.*|補.*|約休.*|約補.*)$/.test(st)) l = true;
+                            
+                            shifts.push({ raw: st, display: disp, isHolidayWork: h, isLeave: l });
+                        }
+                    }
+                    
+                    if (hasRealShift) {
+                        window.allEmployees.push({ name: pureName, id: displayId, searchTags: tags, shifts: shifts, role: currentRole });
+                        debugLog.push(`[★成功抓到] ${displayId} ${pureName} (${currentRole}班)`);
+                    }
+                }
+            }
+            
+            if(window.allEmployees.length > 0) {
+                const sid = `${window.currentYear}-${window.currentMonth}-EXCEL`;
+                const now = new Date();
+                
+                // 💡 加入上傳時間標記 (timestamp)
+                const formattedTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${now.getHours() >= 12 ? '下午' : '上午'} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                window.showReportModal(
+                    "✅ EXCEL 班表成功讀取！", 
+                    `• 掃描總列數：${totalRowsParsed} 列 (空行煞車上限 50 列)\n` +
+                    `• 設定月份：${window.currentYear}年 ${window.currentMonth}月\n` +
+                    `• 成功匯入同仁：${window.allEmployees.length} 位\n\n` +
+                    `【名單預覽】\n${debugLog.filter(log => log.startsWith('[★')).slice(0, 20).join('\n')} ...等`, 
+                    true
+                );
 
                 try {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sid), { 
-                        year: window.currentYear, 
-                        month: window.currentMonth, 
-                        employees: window.allEmployees,
-                        fileName: fileNameString,
-                        uploadTime: formattedTime
+                        year: window.currentYear, month: window.currentMonth, employees: window.allEmployees, fileName: fileNameString, uploadTime: formattedTime, timestamp: Date.now(), type: 'EXCEL'
                     });
-                    showToast(`✅ 新底層更新成功！(共解析 ${window.allEmployees.length} 人)`);
-                } catch(e) { showToast(`✅ 本機更新成功，但無法存入雲端`, true); }
-            } else {
-                showToast(`❌ 解析失敗：找不到任何員工資料，請確認 PDF 格式`, true);
+                } catch(e) {}
+            } else { 
+                let topDCols = rows.slice(3, 23).map((r, i) => `第${i+4}列 B=[${r[1]||''}] D=[${r[3]||''}]`).join('\n');
+                throw new Error(`這個分頁找不到任何員工姓名！\n\n這代表你選錯了分頁，請重新上傳並選擇正確的班表分頁。\n\n【此分頁前 20 列實際值預覽】\n${topDCols}`); 
             }
         }
-        // ==========================================
 
-        window.deleteCloudSchedule = () => {
-            const sid = document.getElementById('cloudSchedules').value;
+        window.deleteCloudSchedule = (type) => {
+            const sid = document.getElementById(`cloudSchedules${type}`).value;
             if (!sid) { showToast("⚠️ 請先選取", true); return; }
-            window.customConfirm("刪除官方班表", `確定刪除底層 ${sid} 嗎？`, async () => {
+            window.customConfirm(`刪除 ${type} 班表`, `確定刪除底層資料嗎？`, async () => {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', sid));
                 window.allEmployees = []; window.searchedEmployees = []; window.renderAllSchedules();
-                showToast("🗑️ 底層班表已刪除");
+                showToast(`🗑️ ${type} 底層班表已刪除`);
+            });
+        };
+
+        // ========== 其他搜尋過濾等輔助工具 ==========
+        window.showCustomDropdown = () => { document.getElementById('customShiftDropdown').classList.remove('hidden'); window.filterCustomDropdown(); };
+        window.filterCustomDropdown = () => {
+            const inputVal = document.getElementById('queryShift').value.toLowerCase();
+            const dropdown = document.getElementById('customShiftDropdown'); dropdown.innerHTML = '';
+            const shifts = Object.keys(window.customShifts).sort();
+            let hasResult = false;
+            shifts.forEach(shift => {
+                if (shift.toLowerCase().includes(inputVal)) {
+                    hasResult = true;
+                    const item = document.createElement('div'); item.className = "px-4 py-3 text-sm font-bold text-gray-700 cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition"; item.innerText = shift;
+                    item.onmousedown = (e) => { e.preventDefault(); document.getElementById('queryShift').value = shift; dropdown.classList.add('hidden'); window.executeShiftQuery(); };
+                    dropdown.appendChild(item);
+                }
+            });
+            if (!hasResult) dropdown.innerHTML = '<div class="px-4 py-3 text-sm text-gray-400 text-center">無符合班別</div>';
+        };
+
+        window.executeShiftQuery = () => {
+            document.getElementById('customShiftDropdown').classList.add('hidden');
+            const d = document.getElementById('queryDate').value; const s = document.getElementById('queryShift').value.trim();
+            const res = document.getElementById('queryResults'); res.innerHTML = '';
+            if (!d || !s) { showToast("⚠️ 請選擇日期並輸入班型", true); return; }
+            const list = window.allEmployees.filter(e => e.shifts[d - 1] && e.shifts[d - 1].display === s);
+            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">無人上「${s}」</p>`; return; }
+            list.forEach(e => {
+                const tag = document.createElement('div'); tag.className = "bg-white border border-blue-100 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
+                tag.innerHTML = `<span class="text-sm font-bold text-gray-700">${window.currentMonth}/${d} ｜ <span class="text-[#1b759a]">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${s}</span><div class="flex items-center gap-1.5"><button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-blue-50 hover:bg-blue-100 text-[#1b759a] border border-blue-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center"><span class="text-sm leading-none">📅</span></button><button onclick="window.addPinTag(${d}, '${e.name}', '${s}')" class="text-[10px] bg-[#1b759a] text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">📌</button></div>`;
+                res.appendChild(tag);
+            });
+        };
+
+        window.executeRQuery = () => {
+            const d = document.getElementById('queryRDate').value; const type = document.getElementById('queryRType').value; 
+            const res = document.getElementById('queryRResults'); res.innerHTML = '';
+            if (!d || !type) { showToast("⚠️ 請選擇日期與班型", true); return; }
+            const list = window.allEmployees.filter(e => {
+                const s = e.shifts[d - 1]; if (!s || s.isMissing) return false;
+                let isR = s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass);
+                // 💡 如果選項是"其他"，也會成功配對到 e.role="其他" 的人
+                return isR && e.role && e.role.includes(type);
+            });
+            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold">當日無「${type}班」同仁排定休假</p>`; return; }
+            list.forEach(e => {
+                const sDisp = e.shifts[d - 1].display; const tag = document.createElement('div'); tag.className = "bg-sky-50 border border-sky-200 p-2.5 rounded-xl flex justify-between items-center shadow-sm";
+                tag.innerHTML = `<span class="text-sm font-bold text-sky-900">${window.currentMonth}/${d} ｜ <span class="text-sky-600">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span><div class="flex items-center gap-1.5"><button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center"><span class="text-sm leading-none">📅</span></button><button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-sky-500 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">📌</button></div>`;
+                res.appendChild(tag);
+            });
+        };
+
+        window.executeTimeSlotQuery = () => {
+            const d = document.getElementById('queryTimeDate').value; const startH = parseInt(document.getElementById('queryTimeStart').value); const endH = parseInt(document.getElementById('queryTimeEnd').value);
+            const res = document.getElementById('queryTimeResults'); res.innerHTML = '';
+            if (!d || isNaN(startH) || isNaN(endH)) { showToast("⚠️ 請選擇日期與區間", true); return; }
+
+            const startTotalMins = startH * 60; const endTotalMins = endH * 60;
+            const list = window.allEmployees.filter(e => {
+                const s = e.shifts[d - 1]; if (!s || s.isMissing || s.display === 'X') return false;
+                const shiftInfo = window.customShifts[s.display]; if (!shiftInfo || shiftInfo.isRClass || shiftInfo.isSpecial) return false; 
+                if (shiftInfo.startTime) { const [hh, mm] = shiftInfo.startTime.split(':').map(Number); return (hh * 60 + mm) >= startTotalMins && (hh * 60 + mm) <= endTotalMins; }
+                return false;
+            });
+
+            if (list.length === 0) { res.innerHTML = `<p class="text-xs text-gray-400 text-center font-bold py-2">該時段內無人上班，或僅有特殊班型</p>`; return; }
+
+            list.sort((a, b) => {
+                const locA = (window.customShifts[a.shifts[d - 1].display] || {}).location || window.guessLocation(a.shifts[d - 1].display, false);
+                const locB = (window.customShifts[b.shifts[d - 1].display] || {}).location || window.guessLocation(b.shifts[d - 1].display, false);
+                const getLocRank = (loc) => loc.includes('松山') ? 1 : loc.includes('新店') ? 2 : loc.includes('七張') ? 3 : 4;
+                const rankDiff = getLocRank(locA) - getLocRank(locB);
+                return rankDiff !== 0 ? rankDiff : a.shifts[d - 1].display.localeCompare(b.shifts[d - 1].display, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            list.forEach(e => {
+                const sDisp = e.shifts[d - 1].display; const loc = (window.customShifts[sDisp] || {}).location || window.guessLocation(sDisp, false);
+                let bgClass = "bg-white", textClass = "text-gray-800", nameClass = "text-[#1b759a]", borderClass = "border-gray-200";
+                if (loc.includes('松山')) { bgClass = "bg-green-100"; textClass = "text-green-900"; nameClass = "text-green-700"; borderClass = "border-green-300"; } 
+                else if (loc.includes('七張')) { bgClass = "bg-green-600"; textClass = "text-white"; nameClass = "text-green-100"; borderClass = "border-green-700"; } 
+                else if (loc.includes('新店')) { bgClass = "bg-[#1a3a28]"; textClass = "text-gray-100"; nameClass = "text-gray-300"; borderClass = "border-gray-800"; }
+
+                const tag = document.createElement('div'); tag.className = `${bgClass} ${borderClass} border p-2.5 rounded-xl flex justify-between items-center shadow-sm`;
+                tag.innerHTML = `<span class="text-sm font-bold ${textClass}">${window.currentMonth}/${d} ｜ <span class="${nameClass}">${e.id !== '無' ? e.id + ' ' : ''}${e.name}</span> ｜ ${sDisp}</span><div class="flex items-center gap-1.5"><button onclick="window.openReadOnlySchedule('${e.name}')" class="bg-white/20 hover:bg-white/30 ${textClass} border border-white/20 p-1.5 rounded-lg shadow-sm active:scale-90 transition flex items-center justify-center"><span class="text-sm leading-none">📅</span></button><button onclick="window.addPinTag(${d}, '${e.name}', '${sDisp}')" class="text-[10px] bg-black/30 text-white px-2.5 py-1.5 rounded-lg font-black uppercase shadow-sm active:scale-90 transition flex items-center justify-center">📌</button></div>`;
+                res.appendChild(tag);
             });
         };
 
@@ -1498,173 +1623,77 @@
             const n = document.getElementById('newShiftName').value.trim();
             const isR = document.getElementById('newShiftIsR').checked;
             const isSpecial = document.getElementById('newShiftIsSpecial').checked;
-            
-            let s = document.getElementById('newShiftStart').value;
-            let e = document.getElementById('newShiftEnd').value;
-            let loc = document.getElementById('newShiftLocation').value;
-            
+            let s = document.getElementById('newShiftStart').value, e = document.getElementById('newShiftEnd').value, loc = document.getElementById('newShiftLocation').value;
             if (isR) { s = ''; e = ''; loc = ''; }
-            
             if (!n || (!isR && (!s || !e))) { showToast("❌ 請填寫完整時間 (或勾選R班)", true); return; }
             
             const safeDocId = encodeURIComponent(n);
-
-            if (n !== safeDocId && !n.includes('/')) {
-                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){}
-            }
-
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), { 
-                name: n, startTime: s, endTime: e, isRClass: isR, isSpecial: isSpecial, location: loc 
-            });
+            if (n !== safeDocId && !n.includes('/')) { try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){} }
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), { name: n, startTime: s, endTime: e, isRClass: isR, isSpecial: isSpecial, location: loc });
             
-            document.getElementById('newShiftName').value = ''; 
-            document.getElementById('newShiftStart').value = ''; 
-            document.getElementById('newShiftEnd').value = '';
-            document.getElementById('newShiftLocation').value = '七張車班';
-            document.getElementById('newShiftIsR').checked = false;
-            document.getElementById('newShiftIsSpecial').checked = false;
-            window.toggleTimeInputs();
-            window.renderShiftSettingsList(); showToast("✅ 設定儲存成功");
+            document.getElementById('newShiftName').value = ''; document.getElementById('newShiftStart').value = ''; document.getElementById('newShiftEnd').value = '';
+            document.getElementById('newShiftLocation').value = '七張車班'; document.getElementById('newShiftIsR').checked = false; document.getElementById('newShiftIsSpecial').checked = false;
+            window.toggleTimeInputs(); window.renderShiftSettingsList(); showToast("✅ 設定儲存成功");
         };
 
         window.editShiftType = (name, start, end, isR, isSpecial, loc) => {
-            document.getElementById('newShiftName').value = name; 
-            document.getElementById('newShiftStart').value = start || ''; 
-            document.getElementById('newShiftEnd').value = end || '';
-            document.getElementById('newShiftIsR').checked = isR === 'true' || isR === true;
-            document.getElementById('newShiftIsSpecial').checked = isSpecial === 'true' || isSpecial === true;
-            
-            let finalLoc = loc;
-            if (isR === 'true' || isR === true) {
-                finalLoc = '';
-            } else if (!finalLoc) {
-                finalLoc = window.guessLocation(name, isSpecial === 'true' || isSpecial === true);
-            }
-            document.getElementById('newShiftLocation').value = finalLoc || '七張車班';
-            
-            window.toggleTimeInputs();
-            window.scrollTo({ top: 0, behavior: 'smooth' }); showToast("✏️ 已帶入上方準備編輯");
+            document.getElementById('newShiftName').value = name; document.getElementById('newShiftStart').value = start || ''; document.getElementById('newShiftEnd').value = end || '';
+            document.getElementById('newShiftIsR').checked = isR === 'true' || isR === true; document.getElementById('newShiftIsSpecial').checked = isSpecial === 'true' || isSpecial === true;
+            document.getElementById('newShiftLocation').value = (isR === 'true' || isR === true) ? '' : (loc || window.guessLocation(name, isSpecial === 'true' || isSpecial === true) || '七張車班');
+            window.toggleTimeInputs(); window.scrollTo({ top: 0, behavior: 'smooth' }); showToast("✏️ 已帶入上方準備編輯");
         };
 
         window.deleteShiftType = (n) => { 
             const safeDocId = encodeURIComponent(n);
             window.customConfirm("刪除任務設定", `確定永久刪除「${n}」？`, async () => { 
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId)); 
-                
-                if (n !== safeDocId && !n.includes('/')) {
-                    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', n)); } catch(e){}
-                }
+                if (n !== safeDocId && !n.includes('/')) { try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', s.name)); } catch(e){} }
                 showToast("🗑️ 已刪除"); 
             });
         };
 
-        document.getElementById('newShiftIsSpecial').addEventListener('change', (e) => {
-            const isR = document.getElementById('newShiftIsR').checked;
-            if (e.target.checked && !isR) {
-                document.getElementById('newShiftLocation').value = '特殊地點';
-            }
-        });
-
+        document.getElementById('newShiftIsSpecial').addEventListener('change', (e) => { if (e.target.checked && !document.getElementById('newShiftIsR').checked) document.getElementById('newShiftLocation').value = '特殊地點'; });
         window.toggleTimeInputs = () => {
-            const isR = document.getElementById('newShiftIsR').checked;
-            const sInput = document.getElementById('newShiftStart');
-            const eInput = document.getElementById('newShiftEnd');
-            const lInput = document.getElementById('newShiftLocation');
+            const isR = document.getElementById('newShiftIsR').checked; const sInput = document.getElementById('newShiftStart'); const eInput = document.getElementById('newShiftEnd'); const lInput = document.getElementById('newShiftLocation');
             sInput.disabled = isR; eInput.disabled = isR; lInput.disabled = isR;
-            if (isR) {
-                sInput.value = ''; eInput.value = ''; lInput.value = '';
-                sInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                eInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                lInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-            } else {
-                sInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                eInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                lInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400');
-                if(lInput.value === '') lInput.value = '七張車班';
-            }
+            if (isR) { sInput.value = ''; eInput.value = ''; lInput.value = ''; sInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); eInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); lInput.classList.add('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); } 
+            else { sInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); eInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); lInput.classList.remove('bg-gray-100', 'cursor-not-allowed', 'text-gray-400'); if(lInput.value === '') lInput.value = '七張車班'; }
         };
 
         window.initDefaultRShifts = async () => {
             if(!window.currentUser) return;
             const rShifts = ["R", "休8", "休8午", "休8夜", "事8", "病8", "補8", "家照8", "約休8早", "約休8午", "約補8午", "約補8早"];
             for(let i=65; i<=90; i++) rShifts.push("R1" + String.fromCharCode(i));
-
-            showToast("⏳ 正在執行任務卡更新與舊資料地點分析...");
-            
-            for (let r of rShifts) {
-                if(!window.customShifts[r]) {
-                    const safeDocId = encodeURIComponent(r);
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), {
-                        name: r, startTime: "", endTime: "", isRClass: true, isSpecial: false, location: ""
-                    });
-                }
-            }
-
+            showToast("⏳ 正在執行任務卡更新...");
+            for (let r of rShifts) { if(!window.customShifts[r]) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', encodeURIComponent(r)), { name: r, startTime: "", endTime: "", isRClass: true, isSpecial: false, location: "" }); } }
             for (let key in window.customShifts) {
-                let s = window.customShifts[key];
-                const safeDocId = encodeURIComponent(s.name);
-                
-                let updatedData = { ...s };
-                if (s.isRClass && s.location !== "") {
-                    updatedData.location = "";
-                } else if (!s.isRClass && !s.location) {
-                    updatedData.location = window.guessLocation(s.name, s.isSpecial);
-                }
-                
+                let s = window.customShifts[key]; const safeDocId = encodeURIComponent(s.name); let updatedData = { ...s };
+                if (s.isRClass && s.location !== "") updatedData.location = ""; else if (!s.isRClass && !s.location) updatedData.location = window.guessLocation(s.name, s.isSpecial);
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', safeDocId), updatedData);
-
-                if (s.name !== safeDocId && !s.name.includes('/')) {
-                    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', s.name)); } catch(e){}
-                }
+                if (s.name !== safeDocId && !s.name.includes('/')) { try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shiftTypes', s.name)); } catch(e){} }
             }
             showToast("✅ 任務卡更新與地點升級完成！");
         };
 
         window.renderShiftSettingsList = () => {
-            const el = document.getElementById('shiftSettingsList'); el.innerHTML = '';
-            const filterText = document.getElementById('newShiftName').value.trim().toLowerCase();
+            const el = document.getElementById('shiftSettingsList'); el.innerHTML = ''; const filterText = document.getElementById('newShiftName').value.trim().toLowerCase();
             let shifts = Object.values(window.customShifts).sort((a, b) => a.name.localeCompare(b.name));
             if (filterText) shifts = shifts.filter(s => s.name.toLowerCase().includes(filterText));
             if (shifts.length === 0 && filterText) { el.innerHTML = '<p class="text-center text-gray-400 text-sm font-bold py-4">沒有找到相關的任務卡</p>'; return; }
 
             shifts.forEach(s => {
                 const d = document.createElement('div'); d.className = "bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-100";
-                
-                let badges = "";
-                if (s.isRClass) badges += `<span class="bg-gray-100 text-gray-500 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">休假</span>`;
-                if (s.isSpecial) badges += `<span class="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">特殊</span>`;
-
-                const locDisplay = s.location || window.guessLocation(s.name, s.isSpecial);
-                const timeDisp = s.isRClass ? "🛌 休假日 (無地點/時間)" : `🕒 ${s.startTime} - ${s.endTime} &nbsp;&nbsp;📍 ${locDisplay}`;
-
-                d.innerHTML = `
-                    <div class="flex-1"><p class="font-black text-[#1b759a] text-lg flex items-center">${s.name} ${badges}</p><p class="text-[11px] text-gray-500 font-bold tracking-tighter mt-0.5">${timeDisp}</p></div>
-                    
-                    ${window.isAdmin ? `
-                    <div class="flex items-center gap-2">
-                        <button onclick="window.editShiftType('${s.name.replace(/'/g, "\\'")}', '${s.startTime}', '${s.endTime}', ${s.isRClass}, ${s.isSpecial}, '${(s.location || '').replace(/'/g, "\\'")}')" class="p-2.5 text-blue-500 bg-blue-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                        <button onclick="window.deleteShiftType('${s.name.replace(/'/g, "\\'")}')" class="p-2.5 text-red-500 bg-red-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
-                    </div>
-                    ` : ''}
-                    `;
+                let badges = ""; if (s.isRClass) badges += `<span class="bg-gray-100 text-gray-500 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">休假</span>`; if (s.isSpecial) badges += `<span class="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded uppercase font-black ml-2">特殊</span>`;
+                const timeDisp = s.isRClass ? "🛌 休假日 (無地點/時間)" : `🕒 ${s.startTime} - ${s.endTime} &nbsp;&nbsp;📍 ${s.location || window.guessLocation(s.name, s.isSpecial)}`;
+                d.innerHTML = `<div class="flex-1"><p class="font-black text-[#1b759a] text-lg flex items-center">${s.name} ${badges}</p><p class="text-[11px] text-gray-500 font-bold tracking-tighter mt-0.5">${timeDisp}</p></div>${window.isAdmin ? `<div class="flex items-center gap-2"><button onclick="window.editShiftType('${s.name.replace(/'/g, "\\'")}', '${s.startTime}', '${s.endTime}', ${s.isRClass}, ${s.isSpecial}, '${(s.location || '').replace(/'/g, "\\'")}')" class="p-2.5 text-blue-500 bg-blue-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button><button onclick="window.deleteShiftType('${s.name.replace(/'/g, "\\'")}')" class="p-2.5 text-red-500 bg-red-50 rounded-full active:scale-90 shadow-sm"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></div>` : ''}`;
                 el.appendChild(d);
             });
         };
 
         window.updateDropdowns = () => {
-            const dSel = document.getElementById('queryDate'); 
-            const rSel = document.getElementById('queryRDate'); 
-            const tSel = document.getElementById('queryTimeDate');
-            dSel.innerHTML = '<option value="">選擇日期</option>';
-            rSel.innerHTML = '<option value="">選擇日期</option>';
-            if(tSel) tSel.innerHTML = '<option value="">選擇日期</option>';
-            if(window.daysInMonth > 0) {
-                for (let i = 1; i <= window.daysInMonth; i++) {
-                    dSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
-                    rSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
-                    if(tSel) tSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`;
-                }
-            }
+            const dSel = document.getElementById('queryDate'); const rSel = document.getElementById('queryRDate'); const tSel = document.getElementById('queryTimeDate');
+            dSel.innerHTML = '<option value="">選擇日期</option>'; rSel.innerHTML = '<option value="">選擇日期</option>'; if(tSel) tSel.innerHTML = '<option value="">選擇日期</option>';
+            if(window.daysInMonth > 0) { for (let i = 1; i <= window.daysInMonth; i++) { dSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`; rSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`; if(tSel) tSel.innerHTML += `<option value="${i}">${window.currentMonth}/${i}</option>`; } }
         };
 
         window.toggleExportHelp = () => {
@@ -1679,13 +1708,16 @@
             const q = document.getElementById('exportEmpId').value.trim().replace(/\s+/g, '').toLowerCase();
             if (!q) { showToast("⚠️ 請輸入差號或姓名", true); return; }
 
-            const expData = window.cloudSchedulesDB[sid];
+            let targetDocId = `${sid}-${window.currentViewType}`;
+            if (!window.cloudSchedulesDB[targetDocId]) targetDocId = `${sid}-${window.currentViewType === 'PDF' ? 'EXCEL' : 'PDF'}`;
+            if (!window.cloudSchedulesDB[targetDocId] && window.cloudSchedulesDB[sid]) targetDocId = sid;
+
+            const expData = window.cloudSchedulesDB[targetDocId];
             if (!expData || !expData.employees) { showToast("❌ 雲端資料異常，請重新載入", true); return; }
 
             let emp = expData.employees.find(e => e.searchTags && e.searchTags.some(tag => tag === q));
             if (!emp) emp = expData.employees.find(e => String(e.name).replace(/\s+/g, '').includes(q));
-
-            if (!emp) { showToast(`❌ 找不到員工「${q}」`, true); return; }
+            if (!emp) { showToast(`❌ 找不到員工學員「${q}」`, true); return; }
             window.exportTargetEmp = emp;
             
             document.getElementById('exportMonthYearHeader').innerText = `${expData.year}年 ${expData.month}月`;
@@ -1696,74 +1728,52 @@
             for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 h-16 opacity-50"></div>`;
 
             for (let d = 1; d <= new Date(expData.year, expData.month, 0).getDate(); d++) {
-                const s = emp.shifts[d - 1] || { display: "X", isMissing: true };
-                let mainColor = "text-[#1b759a] bg-white";
+                const s = emp.shifts[d - 1] || { display: "X", isMissing: true }; let mainColor = "text-[#1b759a] bg-white";
                 if (s.isMissing) { mainColor = "text-gray-400 bg-gray-50 opacity-60"; }
                 else if (s.isHolidayWork) { mainColor = "text-orange-600 bg-orange-50 font-black"; }
-                else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { 
-                    mainColor = "text-gray-400 bg-gray-100"; 
-                }
+                else if (s.isLeave || (window.customShifts[s.display] && window.customShifts[s.display].isRClass)) { mainColor = "text-gray-400 bg-gray-100"; }
                 grid.innerHTML += `<div class="flex flex-col items-center pt-1 h-16 border-b border-r border-gray-200 ${mainColor}"><span class="text-[10px] font-black text-gray-400 mb-0.5">${d}</span><div class="text-[10px] leading-tight font-bold">${s.isMissing ? '-' : s.display}</div></div>`;
             }
-            document.getElementById('exportResultArea').classList.remove('hidden'); document.getElementById('exportEmpId').blur();
-            showToast(`✅ 已載入 ${emp.name} 的班表`);
+            document.getElementById('exportResultArea').classList.remove('hidden'); document.getElementById('exportEmpId').blur(); showToast(`✅ 已載入 ${emp.name} 的班表`);
         };
 
         window.generateICS = () => {
             if (!window.exportTargetEmp) return;
             const emp = window.exportTargetEmp; const sid = document.getElementById('exportCloudSchedules').value;
-            const data = window.cloudSchedulesDB[sid]; const year = data.year; const month = data.month; const daysInMonth = new Date(year, month, 0).getDate();
+            
+            let targetDocId = `${sid}-${window.currentViewType}`;
+            if (!window.cloudSchedulesDB[targetDocId]) targetDocId = `${sid}-${window.currentViewType === 'PDF' ? 'EXCEL' : 'PDF'}`;
+            if (!window.cloudSchedulesDB[targetDocId] && window.cloudSchedulesDB[sid]) targetDocId = sid;
 
-            const now = new Date();
-            const stampStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
+            const data = window.cloudSchedulesDB[targetDocId]; const year = data.year; const month = data.month; const daysInMonth = new Date(year, month, 0).getDate();
+            const stampStr = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
             let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MRT Shift Swap App//TW\r\nCALSCALE:GREGORIAN\r\n";
 
             for (let d = 1; d <= daysInMonth; d++) {
-                const shift = emp.shifts[d - 1];
-                const shiftInfo = window.customShifts[shift.display];
-                
+                const shift = emp.shifts[d - 1]; const shiftInfo = window.customShifts[shift.display];
                 if (!shift || shift.isMissing || shift.isLeave || shift.display === 'X' || (shiftInfo && shiftInfo.isRClass)) continue;
-
                 const mm = month.toString().padStart(2, '0'); const dd = d.toString().padStart(2, '0'); const dateStr = `${year}${mm}${dd}`;
                 const uid = `mrt-${year}${mm}${dd}-${encodeURIComponent(emp.name)}@mrtschedule`;
 
-                icsContent += "BEGIN:VEVENT\r\n";
-                icsContent += `UID:${uid}\r\n`;
-                icsContent += `DTSTAMP:${stampStr}\r\n`;
-                icsContent += `SUMMARY:${shift.display}\r\n`;
-                icsContent += `DESCRIPTION:捷運班表 (${emp.name})\r\n`;
-                
-                if (shiftInfo && shiftInfo.location) {
-                    icsContent += `LOCATION:${shiftInfo.location}\r\n`;
-                }
+                icsContent += "BEGIN:VEVENT\r\n"; icsContent += `UID:${uid}\r\n`; icsContent += `DTSTAMP:${stampStr}\r\n`; icsContent += `SUMMARY:${shift.display}\r\n`; icsContent += `DESCRIPTION:捷運班表 (${emp.name})\r\n`;
+                if (shiftInfo && shiftInfo.location) icsContent += `LOCATION:${shiftInfo.location}\r\n`;
 
                 if (shiftInfo && shiftInfo.startTime && shiftInfo.endTime) {
                     const startParts = shiftInfo.startTime.split(':'); const endParts = shiftInfo.endTime.split(':');
-                    let dtStartStr = `${dateStr}T${startParts[0]}${startParts[1]}00`;
-                    let endD = d; let endM = month; let endY = year;
+                    let dtStartStr = `${dateStr}T${startParts[0]}${startParts[1]}00`; let endD = d; let endM = month; let endY = year;
                     if (parseInt(endParts[0]) < parseInt(startParts[0]) || (parseInt(endParts[0]) === parseInt(startParts[0]) && parseInt(endParts[1]) < parseInt(startParts[1]))) {
                         let nextDay = new Date(year, month - 1, d + 1); endD = nextDay.getDate(); endM = nextDay.getMonth() + 1; endY = nextDay.getFullYear();
                     }
-                    let endMm = endM.toString().padStart(2, '0'); let endDd = endD.toString().padStart(2, '0');
-                    let dtEndStr = `${endY}${endMm}${endDd}T${endParts[0]}${endParts[1]}00`;
-                    
-                    icsContent += `DTSTART:${dtStartStr}\r\n`; 
-                    icsContent += `DTEND:${dtEndStr}\r\n`;
+                    let dtEndStr = `${endY}${endM.toString().padStart(2, '0')}${endD.toString().padStart(2, '0')}T${endParts[0]}${endParts[1]}00`;
+                    icsContent += `DTSTART:${dtStartStr}\r\n`; icsContent += `DTEND:${dtEndStr}\r\n`;
                 } else {
-                    let nextDay = new Date(year, month - 1, d + 1);
-                    let endMm = (nextDay.getMonth() + 1).toString().padStart(2, '0'); let endDd = nextDay.getDate().toString().padStart(2, '0');
-                    let endDateStr = `${nextDay.getFullYear()}${endMm}${endDd}`;
-                    icsContent += `SUMMARY:${shift.display} (未設定時間)\r\n`; 
-                    icsContent += `DTSTART;VALUE=DATE:${dateStr}\r\n`; 
-                    icsContent += `DTEND;VALUE=DATE:${endDateStr}\r\n`;
+                    let nextDay = new Date(year, month - 1, d + 1); let endDateStr = `${nextDay.getFullYear()}${(nextDay.getMonth() + 1).toString().padStart(2, '0')}${nextDay.getDate().toString().padStart(2, '0')}`;
+                    icsContent += `SUMMARY:${shift.display} (未設定時間)\r\n`; icsContent += `DTSTART;VALUE=DATE:${dateStr}\r\n`; icsContent += `DTEND;VALUE=DATE:${endDateStr}\r\n`;
                 }
                 icsContent += "END:VEVENT\r\n";
             }
             icsContent += "END:VCALENDAR\r\n";
-
-            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-            const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
             link.download = `${year}年${month}月_${emp.id !== '無' ? emp.id : ''}${emp.name}_班表.ics`;
             document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast("🎉 行事曆檔案匯出成功！");
         };
@@ -1772,15 +1782,8 @@
             document.getElementById('view-schedule').className = t === 'schedule' ? 'block' : 'hidden';
             document.getElementById('view-export').className = t === 'export' ? 'block' : 'hidden';
             document.getElementById('view-settings').className = t === 'settings' ? 'block' : 'hidden';
-            
-            const tabs = ['schedule', 'export', 'settings'];
-            tabs.forEach(tab => {
-                const btn = document.getElementById('btn-tab-' + tab);
-                if (tab === t) {
-                    btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold`;
-                } else {
-                    btn.className = `flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold`;
-                }
+            ['schedule', 'export', 'settings'].forEach(tab => {
+                document.getElementById('btn-tab-' + tab).className = tab === t ? `flex-1 py-3 flex flex-col items-center transition duration-300 bg-blue-50 text-[#1b759a] font-bold` : `flex-1 py-3 flex flex-col items-center transition duration-300 bg-white text-gray-400 font-bold`;
             });
             window.scrollTo({ top: 0 });
         };
